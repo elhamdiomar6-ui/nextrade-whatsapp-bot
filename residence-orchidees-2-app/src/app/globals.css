@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+/* ── Design tokens ─────────────────────────────────────────── */
+:root {
+  --color-primary:        #15803d; /* green-700 */
+  --color-primary-dark:   #166534; /* green-800 */
+  --color-primary-light:  #dcfce7; /* green-100 */
+  --color-accent:         #d97706; /* amber-600 */
+  --color-sidebar-bg:     #166534;
+  --color-sidebar-text:   #bbf7d0; /* green-200 */
+  --color-sidebar-active: #15803d;
+  --background:           #f9fafb; /* gray-50 */
+  --foreground:           #111827; /* gray-900 */
+}
+
+/* ── RTL support ──────────────────────────────────────────── */
+[dir="rtl"] {
+  font-family: "Geist Sans", "Segoe UI", Tahoma, sans-serif;
+}
+
+/* ── Base ─────────────────────────────────────────────────── */
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Geist Sans", system-ui, sans-serif;
+}
+
+/* ── Scrollbar ────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #9ca3af; }

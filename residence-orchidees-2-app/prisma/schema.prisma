@@ -1,0 +1,858 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  OPERATOR
+  VIEWER
+  OCCUPANT
+}
+
+enum UnitKind {
+  APARTMENT
+  SHOP
+  CONCIERGE
+  COMMON
+}
+
+enum ServiceType {
+  WATER
+  ELECTRICITY
+  GAS
+  INTERNET
+  PHONE
+  OTHER
+}
+
+enum SubscriptionScope {
+  INDIVIDUAL
+  GENERAL
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  SUSPENDED
+  TERMINATED
+}
+
+enum ReadingMode {
+  MANUAL
+  AUTOMATIC
+}
+
+enum DocumentType {
+  CONTRACT
+  INVOICE
+  REPORT
+  PERMIT
+  OTHER
+}
+
+enum InterventionStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ExpenseCategoryCode {
+  ELEVATOR
+  STAIRCASE
+  SATELLITE
+  GARAGE_DOOR
+  MAIN_DOOR
+  FIRE_DOOR
+  OTHER
+}
+
+enum AlertLevel {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+// ─── Phase 3 — Vente immobilière ─────────────────────────────────────────────
+
+enum LotStatus {
+  DISPONIBLE
+  RESERVE
+  VENDU
+}
+
+enum ProspectStatus {
+  NOUVEAU
+  CONTACTE
+  VISITE
+  NEGOCIATION
+  SIGNE
+  PERDU
+}
+
+enum ContactType {
+  APPEL
+  VISITE
+  MESSAGE
+  WHATSAPP
+  EMAIL
+}
+
+enum SaleStatus {
+  RESERVE
+  EN_COURS
+  ACTE_SIGNE
+  LIVRE
+}
+
+// ─── Paramètres application ──────────────────────────────────────────────────
+
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Pièces jointes (polymorphique) ──────────────────────────────────────────
+
+model Attachment {
+  id         String   @id @default(cuid())
+  url        String
+  name       String
+  mimeType   String
+  size       Int      // octets
+  entityType String   // "intervention"|"visit"|"expense"|"invoice"|"prospect"|"sale"|"reading"
+  entityId   String
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+}
+
+// ─── Phase 6 — Agent IA ──────────────────────────────────────────────────────
+
+enum AgentMessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  phone        String?
+  role         UserRole @default(VIEWER)
+  unitId       String?
+  unit         Unit?    @relation("UnitUsers", fields: [unitId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  alerts        Alert[]
+  messagesSent  OccupantMessage[]      @relation("SentMessages")
+  notifications OccupantNotification[] @relation("UserNotifications")
+}
+
+model Residence {
+  id        String   @id @default(cuid())
+  name      String
+  address   String?
+  city      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  units         Unit[]
+  subscriptions Subscription[]
+  expenses      Expense[]
+  agentVisits   AgentVisit[]
+  interventions Intervention[]
+  alerts        Alert[]
+  lots          Lot[]
+}
+
+model Unit {
+  id            String    @id @default(cuid())
+  name          String
+  kind          UnitKind
+  floor         Int?
+  occupantName  String?
+  occupantPhone String?
+  occupantEmail String?
+  occupantType  String?   // "LOCATAIRE" | "PROPRIETAIRE" | "VACANT"
+  occupantSince DateTime?
+  area          Float?
+  description   String?
+  residenceId   String
+  residence     Residence @relation(fields: [residenceId], references: [id])
+
+  subscriptions Subscription[]
+  lot           Lot?
+  occupants     Occupant[]
+  users         User[]           @relation("UnitUsers")
+  messages      OccupantMessage[] @relation("UnitMessages")
+
+  @@unique([residenceId, name])
+}
+
+model Subscription {
+  id             String             @id @default(cuid())
+  serviceType    ServiceType
+  scope          SubscriptionScope  @default(INDIVIDUAL)
+  status         SubscriptionStatus @default(ACTIVE)
+  contractNumber String?
+  provider       String?
+  power          String?
+
+  residenceId String
+  residence   Residence @relation(fields: [residenceId], references: [id])
+
+  unitId String?
+  unit   Unit?   @relation(fields: [unitId], references: [id])
+
+  meters    Meter[]
+  invoices  Invoice[]
+  documents Document[]
+}
+
+model Meter {
+  id             String       @id @default(cuid())
+  serialNumber   String       @unique
+  serviceType    ServiceType
+  installedAt    DateTime?
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+
+  readings MeterReading[]
+}
+
+model MeterReading {
+  id            String      @id @default(cuid())
+  value         Float
+  previousValue Float?
+  date          DateTime    @default(now())
+  mode          ReadingMode @default(MANUAL)
+  validated     Boolean     @default(false)
+  validatedBy   String?
+  notes         String?
+
+  photoUrl      String?
+
+  meterId String
+  meter   Meter  @relation(fields: [meterId], references: [id])
+
+  agentVisitId String?
+  agentVisit   AgentVisit? @relation(fields: [agentVisitId], references: [id])
+}
+
+model AgentVisit {
+  id        String   @id @default(cuid())
+  date      DateTime
+  agentName String
+  company   String?
+  notes     String?
+  createdAt DateTime @default(now())
+
+  residenceId String
+  residence   Residence @relation(fields: [residenceId], references: [id])
+
+  readings  MeterReading[]
+  documents Document[]
+}
+
+model Invoice {
+  id        String    @id @default(cuid())
+  reference String?
+  amount    Float
+  period    DateTime
+  dueDate   DateTime?
+  paid      Boolean   @default(false)
+  paidAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+
+  documents Document[]
+}
+
+model ExpenseCategory {
+  id     String              @id @default(cuid())
+  code   ExpenseCategoryCode @unique
+  nameFr String
+  nameAr String?
+
+  expenses Expense[]
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  amount      Float
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  categoryId String
+  category   ExpenseCategory @relation(fields: [categoryId], references: [id])
+
+  residenceId String
+  residence   Residence @relation(fields: [residenceId], references: [id])
+
+  documents Document[]
+}
+
+model Contractor {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String?
+  email     String?
+  specialty String?
+  createdAt DateTime @default(now())
+
+  interventions Intervention[]
+}
+
+model Intervention {
+  id          String             @id @default(cuid())
+  title       String
+  description String?
+  date        DateTime           @default(now())
+  status      InterventionStatus @default(PENDING)
+  createdAt   DateTime           @default(now())
+
+  residenceId String
+  residence   Residence @relation(fields: [residenceId], references: [id])
+
+  contractorId String?
+  contractor   Contractor? @relation(fields: [contractorId], references: [id])
+
+  media     Media[]
+  documents Document[]
+}
+
+model Document {
+  id         String       @id @default(cuid())
+  title      String
+  type       DocumentType @default(OTHER)
+  url        String
+  date       DateTime     @default(now())
+  createdAt  DateTime     @default(now())
+  isOfficial Boolean      @default(false)
+
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+
+  interventionId String?
+  intervention   Intervention? @relation(fields: [interventionId], references: [id])
+
+  expenseId String?
+  expense   Expense? @relation(fields: [expenseId], references: [id])
+
+  agentVisitId String?
+  agentVisit   AgentVisit? @relation(fields: [agentVisitId], references: [id])
+
+  invoiceId String?
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id])
+}
+
+model Media {
+  id        String   @id @default(cuid())
+  url       String
+  type      String
+  createdAt DateTime @default(now())
+
+  interventionId String
+  intervention   Intervention @relation(fields: [interventionId], references: [id])
+}
+
+// ─── Phase 3 Models ──────────────────────────────────────────────────────────
+
+model CoOwner {
+  id           String   @id @default(cuid())
+  name         String
+  email        String?
+  phone        String?
+  sharePercent Float    // ex: 25.0
+  order        Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  shares RevenueShare[]
+}
+
+model Lot {
+  id          String    @id @default(cuid())
+  name        String    // ex: "A1", "MAG1"
+  reference   String?   @unique
+  status      LotStatus @default(DISPONIBLE)
+  price       Float?
+  area        Float?
+  floor       Int?
+  description String?
+  kind        UnitKind  @default(APARTMENT)
+
+  residenceId String
+  residence   Residence @relation(fields: [residenceId], references: [id])
+
+  unitId String? @unique
+  unit   Unit?   @relation(fields: [unitId], references: [id])
+
+  media       LotMedia[]
+  prospectLots ProspectLot[]
+  sale        Sale?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model LotMedia {
+  id        String   @id @default(cuid())
+  url       String
+  type      String   // "PHOTO" | "PLAN"
+  name      String?
+  lotId     String
+  lot       Lot      @relation(fields: [lotId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Prospect {
+  id       String         @id @default(cuid())
+  name     String
+  phone    String?
+  whatsapp String?
+  email    String?
+  status   ProspectStatus @default(NOUVEAU)
+  notes    String?
+  source   String?
+
+  contacts    ProspectContact[]
+  prospectLots ProspectLot[]
+  reminders   WhatsAppReminder[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ProspectLot {
+  id         String   @id @default(cuid())
+  prospectId String
+  prospect   Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  lotId      String
+  lot        Lot      @relation(fields: [lotId], references: [id], onDelete: Cascade)
+
+  @@unique([prospectId, lotId])
+}
+
+model ProspectContact {
+  id         String      @id @default(cuid())
+  type       ContactType
+  notes      String?
+  date       DateTime    @default(now())
+  prospectId String
+  prospect   Prospect    @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+}
+
+model WhatsAppReminder {
+  id          String    @id @default(cuid())
+  message     String
+  scheduledAt DateTime
+  sent        Boolean   @default(false)
+  sentAt      DateTime?
+  prospectId  String
+  prospect    Prospect  @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+}
+
+model Sale {
+  id              String     @id @default(cuid())
+  status          SaleStatus @default(RESERVE)
+  totalAmount     Float
+  depositAmount   Float      @default(0)
+  contractUrl     String?
+  buyerName       String?
+  buyerPhone      String?
+  notaryName      String?
+  notaryPhone     String?
+  signingDate     DateTime?
+  deliveryDate    DateTime?
+  notes           String?
+
+  lotId String @unique
+  lot   Lot    @relation(fields: [lotId], references: [id])
+
+  paymentSchedule PaymentSchedule[]
+  distributions   RevenueDistribution[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PaymentSchedule {
+  id          String    @id @default(cuid())
+  label       String?
+  amount      Float
+  dueDate     DateTime
+  paid        Boolean   @default(false)
+  paidAt      DateTime?
+  saleId      String
+  sale        Sale      @relation(fields: [saleId], references: [id], onDelete: Cascade)
+}
+
+model RevenueDistribution {
+  id          String   @id @default(cuid())
+  totalAmount Float
+  date        DateTime @default(now())
+  notes       String?
+  saleId      String
+  sale        Sale     @relation(fields: [saleId], references: [id])
+
+  shares RevenueShare[]
+}
+
+model RevenueShare {
+  id             String              @id @default(cuid())
+  amount         Float
+  sharePercent   Float
+  coOwnerId      String
+  coOwner        CoOwner             @relation(fields: [coOwnerId], references: [id])
+  distributionId String
+  distribution   RevenueDistribution @relation(fields: [distributionId], references: [id], onDelete: Cascade)
+}
+
+// ─── Phase 6 — Agent IA ──────────────────────────────────────────────────────
+
+model AgentConversation {
+  id        String   @id @default(cuid())
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages AgentMessage[]
+}
+
+model AgentMessage {
+  id             String            @id @default(cuid())
+  role           AgentMessageRole
+  content        String
+  conversationId String
+  conversation   AgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime          @default(now())
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userName    String
+  userEmail   String
+  entity      String
+  entityId    String
+  entityLabel String
+  field       String
+  oldValue    String?
+  newValue    String?
+  createdAt   DateTime @default(now())
+
+  @@index([entity, entityId])
+}
+
+model Alert {
+  id        String     @id @default(cuid())
+  title     String
+  message   String
+  level     AlertLevel @default(INFO)
+  read      Boolean    @default(false)
+  createdAt DateTime   @default(now())
+
+  residenceId String
+  residence   Residence @relation(fields: [residenceId], references: [id])
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
+}
+
+// ─── Occupants & Acquéreurs ───────────────────────────────────────────────────
+
+enum OccupantType {
+  PROPRIETAIRE
+  LOCATAIRE
+  OCCUPANT
+}
+
+enum OccupantStatus {
+  ACTIF
+  SORTI
+  EN_ATTENTE
+}
+
+enum FamilialStatus {
+  CELIBATAIRE
+  MARIE
+  DIVORCE
+  VEUF
+}
+
+enum AcquereurStatus {
+  NOUVEAU
+  CONTACTE
+  VISITE
+  NEGOCIATION
+  COMPROMIS
+  ACTE
+  PERDU
+}
+
+enum FinancementType {
+  CASH
+  CREDIT
+}
+
+model Occupant {
+  id               String         @id @default(cuid())
+  // Identité
+  nom              String
+  prenom           String
+  cin              String?
+  dateNaissance    DateTime?
+  nationalite      String?        @default("Marocaine")
+  situationFam     FamilialStatus @default(CELIBATAIRE)
+  nbEnfants        Int            @default(0)
+  nomConjoint      String?
+  // Coordonnées
+  telephone        String?
+  whatsapp         String?
+  email            String?
+  adresse          String?
+  // Situation immeuble
+  unitId           String?
+  unit             Unit?          @relation(fields: [unitId], references: [id])
+  type             OccupantType   @default(LOCATAIRE)
+  dateEntree       DateTime?
+  dateSortie       DateTime?
+  loyer            Float?
+  caution          Float?
+  statut           OccupantStatus @default(ACTIF)
+  // Documents
+  documents        OccupantDocument[]
+  // Timestamps
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+}
+
+model OccupantDocument {
+  id          String   @id @default(cuid())
+  occupantId  String
+  occupant    Occupant @relation(fields: [occupantId], references: [id], onDelete: Cascade)
+  title       String
+  url         String
+  type        String   @default("autre")
+  createdAt   DateTime @default(now())
+}
+
+model Acquereur {
+  id               String          @id @default(cuid())
+  // Identité
+  nom              String
+  prenom           String
+  cin              String?
+  dateNaissance    DateTime?
+  nationalite      String?         @default("Marocaine")
+  profession       String?
+  situationFam     FamilialStatus  @default(CELIBATAIRE)
+  nbEnfants        Int             @default(0)
+  // Coordonnées
+  telephone        String?
+  whatsapp         String?
+  email            String?
+  adresse          String?
+  // Intérêt achat
+  unitesCiblees    String?         // JSON array of unit names
+  budgetMax        Float?
+  financement      FinancementType @default(CASH)
+  banque           String?
+  apport           Float?
+  // Suivi
+  statut           AcquereurStatus @default(NOUVEAU)
+  agentResponsable String?
+  prochaineAction  String?
+  prochaineDate    DateTime?
+  notes            String?
+  // Relations
+  contacts         AcquereurContact[]
+  documents        AcquereurDocument[]
+  // Timestamps
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+}
+
+model AcquereurContact {
+  id           String    @id @default(cuid())
+  acquereurId  String
+  acquereur    Acquereur @relation(fields: [acquereurId], references: [id], onDelete: Cascade)
+  type         String    // APPEL, VISITE, MESSAGE, WHATSAPP, EMAIL
+  date         DateTime  @default(now())
+  notes        String?
+  createdAt    DateTime  @default(now())
+}
+
+model AcquereurDocument {
+  id           String    @id @default(cuid())
+  acquereurId  String
+  acquereur    Acquereur @relation(fields: [acquereurId], references: [id], onDelete: Cascade)
+  title        String
+  url          String
+  type         String    @default("autre")
+  createdAt    DateTime  @default(now())
+}
+
+// ─── Corps de métier / Prestataires ──────────────────────────────────────────
+
+enum MetierType {
+  ELECTRICITE
+  PLOMBERIE_SANITAIRE
+  CLIMATISATION_VENTILATION
+  MENUISERIE_BOIS
+  MENUISERIE_ALUMINIUM
+  FERRONNERIE_SERRURERIE
+  MACONNERIE
+  BETON_COFFRAGE
+  CARRELAGE_REVETEMENT
+  PEINTURE_BATIMENT
+  PLATRERIE_ENDUIT
+  TERRASSEMENT
+  ETANCHEITE_ISOLATION
+  ASCENSEUR
+  GEOMETRE
+  INGENIEUR_GENIE_CIVIL
+  BUREAU_CONTROLE
+  TOPOGRAPHIE
+  SECURITE_INCENDIE
+  ESPACES_VERTS
+  NETTOYAGE_CHANTIER
+  TRANSPORT_LIVRAISON
+  LOCATION_ENGINS
+  FOURNISSEUR_MATERIAUX
+  ARCHITECTE
+  NOTAIRE
+  VENDEUR_TERRAIN
+  ORGANISME_URBANISME
+  AUTRE
+}
+
+enum PrestataireStatut {
+  EN_COURS
+  TERMINE
+  GARANTIE
+  LITIGE
+  CLOTURE
+}
+
+model Prestataire {
+  id                String            @id @default(cuid())
+  metier            MetierType
+  metierLibre       String?
+  nomSociete        String
+  responsable       String?
+  telephone         String?
+  whatsapp          String?
+  email             String?
+  adresse           String?
+  rc                String?
+  identifiantFiscal String?
+  specialite        String?
+  zonesIntervention String?           // JSON: ["SOUS_SOL","RDC",...]
+  montantMarche     Float?
+  montantPaye       Float?            @default(0)
+  dateDebut         DateTime?
+  dateFin           DateTime?
+  statut            PrestataireStatut @default(EN_COURS)
+  noteSatisfaction  Int?
+  garantieDuree     String?
+  garantieExpiration DateTime?
+  notes             String?
+  metierData        String?           // JSON: champs spécifiques au métier
+  autresMetiers     String?           // JSON: array MetierType secondaires
+  recommande        Boolean?          @default(false)
+  blackliste        Boolean?          @default(false)
+  documents         PrestataireDocument[]
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([metier])
+  @@index([statut])
+}
+
+model PrestataireDocument {
+  id            String      @id @default(cuid())
+  prestataireId String
+  prestataire   Prestataire @relation(fields: [prestataireId], references: [id], onDelete: Cascade)
+  title         String
+  url           String
+  type          String      @default("autre")
+  createdAt     DateTime    @default(now())
+}
+
+// ─── Messagerie occupants ────────────────────────────────────────────────────
+
+model OccupantMessage {
+  id        String   @id @default(cuid())
+  senderId  String
+  sender    User     @relation("SentMessages", fields: [senderId], references: [id])
+  unitId    String?
+  unit      Unit?    @relation("UnitMessages", fields: [unitId], references: [id])
+  type      String   @default("LIBRE")   // INCIDENT | DOCUMENT | FACTURE | INTERVENTION | LIBRE
+  subject   String?
+  content   String
+  read      Boolean  @default(false)
+  isAdmin   Boolean  @default(false)
+  threadId  String?
+  createdAt DateTime @default(now())
+
+  @@index([threadId])
+  @@index([unitId])
+}
+
+model OccupantNotification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  type      String   // FACTURE | RELEVE | INTERVENTION | MESSAGE | INFO
+  read      Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model AgentMemory {
+  id        String    @id @default(cuid())
+  key       String    @unique
+  value     String    // JSON or text value
+  context   String?   // optional context description
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([key])
+}
+
+model ScanLog {
+  id              String   @id @default(cuid())
+  fileName        String
+  fileUrl         String?
+  docType         String
+  confidence      Int      @default(0)
+  extractedData   String   // JSON
+  actionsExecuted String?  // JSON array of action types done
+  userId          String
+  userEmail       String
+  createdAt       DateTime @default(now())
+
+  @@index([userId])
+}
