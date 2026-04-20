@@ -110,7 +110,7 @@ const DOC_TYPE_CHAT: Record<string, { icon: string; label: string }> = {
   other: { icon: "📁", label: "Document" },
 };
 
-const STORAGE_KEY = "orchid_chat_history";
+const STORAGE_KEY = "karim_expert_history";
 const MAX_STORED = 40;
 
 function loadMessages(): Message[] {
@@ -399,7 +399,7 @@ export function AgentChat() {
           zIndex: 40,
           width: 56,
           height: 56,
-          background: "linear-gradient(135deg, #15803d 0%, #166534 100%)",
+          background: "linear-gradient(135deg, #1e3a5f 0%, #0f2847 100%)",
           color: "white",
           border: "none",
           borderRadius: "50%",
@@ -407,15 +407,17 @@ export function AgentChat() {
           alignItems: "center",
           justifyContent: "center",
           cursor: "pointer",
-          boxShadow: "0 4px 20px rgba(22,101,52,0.4)",
+          boxShadow: "0 4px 20px rgba(15,40,71,0.45)",
           transition: "transform 0.2s",
-          fontSize: 22,
+          fontSize: 13,
+          fontWeight: 800,
+          letterSpacing: "-0.5px",
         }}
         onMouseEnter={e => (e.currentTarget.style.transform = "scale(1.08)")}
         onMouseLeave={e => (e.currentTarget.style.transform = "scale(1)")}
-        title="Orchid — Assistant IA"
+        title="Karim — Expert Immobilier"
       >
-        🌸
+        KR
         {alertCount > 0 && (
           <span style={{
             position: "absolute", top: -2, right: -2,
@@ -453,7 +455,7 @@ export function AgentChat() {
         >
           {/* Header */}
           <div style={{
-            background: "linear-gradient(135deg, #15803d 0%, #166534 100%)",
+            background: "linear-gradient(135deg, #1e3a5f 0%, #0f2847 100%)",
             padding: "14px 16px",
             display: "flex",
             alignItems: "center",
@@ -463,16 +465,17 @@ export function AgentChat() {
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{
                 width: 38, height: 38,
-                background: "rgba(255,255,255,0.15)",
+                background: "rgba(255,255,255,0.12)",
+                border: "1px solid rgba(255,255,255,0.2)",
                 borderRadius: "50%",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 20,
-              }}>🌸</div>
+                fontSize: 12, fontWeight: 800, color: "white", letterSpacing: "-0.5px",
+              }}>KR</div>
               <div>
-                <p style={{ color: "white", fontWeight: 700, fontSize: 14, margin: 0 }}>Orchid</p>
-                <p style={{ color: "#86efac", fontSize: 11, margin: 0, display: "flex", alignItems: "center", gap: 4 }}>
-                  <span style={{ width: 6, height: 6, background: "#4ade80", borderRadius: "50%", display: "inline-block" }} />
-                  {loading ? "En train de réfléchir…" : "En ligne · Les Orchidées 2"}
+                <p style={{ color: "white", fontWeight: 700, fontSize: 14, margin: 0 }}>Karim</p>
+                <p style={{ color: "#93c5fd", fontSize: 11, margin: 0, display: "flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ width: 6, height: 6, background: "#60a5fa", borderRadius: "50%", display: "inline-block" }} />
+                  {loading ? "Analyse en cours…" : "Expert · Gestion Immobilière"}
                 </p>
               </div>
             </div>
@@ -483,39 +486,39 @@ export function AgentChat() {
                 </button>
               )}
               {messages.length > 0 && (
-                <button onClick={() => { setMessages([]); localStorage.removeItem(STORAGE_KEY); }} style={{ background: "none", border: "none", borderRadius: 8, padding: "6px", cursor: "pointer", color: "#86efac" }} title="Effacer la conversation">
+                <button onClick={() => { setMessages([]); localStorage.removeItem(STORAGE_KEY); }} style={{ background: "none", border: "none", borderRadius: 8, padding: "6px", cursor: "pointer", color: "#93c5fd" }} title="Effacer la conversation">
                   <Trash2 size={14} />
                 </button>
               )}
-              <button onClick={() => setOpen(false)} style={{ background: "none", border: "none", borderRadius: 8, padding: "6px", cursor: "pointer", color: "#86efac" }}>
+              <button onClick={() => setOpen(false)} style={{ background: "none", border: "none", borderRadius: 8, padding: "6px", cursor: "pointer", color: "#93c5fd" }}>
                 <X size={16} />
               </button>
             </div>
           </div>
 
           {/* Page context chip */}
-          <div style={{ padding: "6px 14px", background: "#f0fdf4", borderBottom: "1px solid #dcfce7", display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-            <Sparkles size={11} color="#16a34a" />
-            <span style={{ fontSize: 11, color: "#15803d", fontWeight: 500 }}>Page: {getPageLabel(pathname)}</span>
+          <div style={{ padding: "6px 14px", background: "#eff6ff", borderBottom: "1px solid #bfdbfe", display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+            <Sparkles size={11} color="#1d4ed8" />
+            <span style={{ fontSize: 11, color: "#1e3a5f", fontWeight: 500 }}>Page: {getPageLabel(pathname)}</span>
           </div>
 
           {/* Messages */}
           <div style={{ flex: 1, overflowY: "auto", padding: "14px", display: "flex", flexDirection: "column", gap: 12 }}>
             {messages.length === 0 && (
               <div style={{ textAlign: "center", paddingTop: 20 }}>
-                <div style={{ width: 60, height: 60, background: "#f0fdf4", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px", fontSize: 28 }}>🌸</div>
-                <p style={{ fontWeight: 600, color: "#111827", fontSize: 14, margin: "0 0 4px" }}>Bonjour ! Je suis Orchid</p>
-                <p style={{ fontSize: 12, color: "#9ca3af", margin: "0 0 16px", lineHeight: 1.5 }}>
-                  Assistant IA de la Résidence Les Orchidées 2.<br />
-                  Je connais tout de votre résidence en temps réel.
+                <div style={{ width: 60, height: 60, background: "linear-gradient(135deg, #1e3a5f 0%, #0f2847 100%)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px", fontSize: 18, fontWeight: 800, color: "white", letterSpacing: "-1px" }}>KR</div>
+                <p style={{ fontWeight: 700, color: "#111827", fontSize: 14, margin: "0 0 2px" }}>Karim — Expert Immobilier</p>
+                <p style={{ fontSize: 12, color: "#6b7280", margin: "0 0 4px" }}>Gestion · Comptabilité · Technique</p>
+                <p style={{ fontSize: 11, color: "#9ca3af", margin: "0 0 16px", lineHeight: 1.5 }}>
+                  Accès complet à la Résidence Les Orchidées 2.<br />
+                  Données temps réel — Actions directes.
                 </p>
-                {/* Contextual suggestions */}
-                <p style={{ fontSize: 11, color: "#6b7280", marginBottom: 8, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.05em" }}>Suggestions pour cette page</p>
+                <p style={{ fontSize: 11, color: "#6b7280", marginBottom: 8, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.05em" }}>Suggestions</p>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center" }}>
                   {suggestions.map((s) => (
-                    <button key={s} onClick={() => sendMessage(s)} style={{ fontSize: 12, padding: "6px 12px", borderRadius: 20, border: "1px solid #d1fae5", color: "#15803d", background: "#f0fdf4", cursor: "pointer", fontWeight: 500, transition: "all 0.15s" }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "#dcfce7"; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "#f0fdf4"; }}>
+                    <button key={s} onClick={() => sendMessage(s)} style={{ fontSize: 12, padding: "6px 12px", borderRadius: 20, border: "1px solid #bfdbfe", color: "#1e3a5f", background: "#eff6ff", cursor: "pointer", fontWeight: 500, transition: "all 0.15s" }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "#dbeafe"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "#eff6ff"; }}>
                       {s}
                     </button>
                   ))}
@@ -527,17 +530,19 @@ export function AgentChat() {
               <div key={i} style={{ display: "flex", flexDirection: msg.role === "user" ? "row-reverse" : "row", gap: 8, alignItems: "flex-start" }}>
                 <div style={{
                   width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
-                  background: msg.role === "user" ? "#15803d" : "#f0fdf4",
+                  background: msg.role === "user" ? "#1e3a5f" : "#eff6ff",
+                  border: msg.role === "assistant" ? "1px solid #bfdbfe" : "none",
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: msg.role === "user" ? 12 : 14,
-                  color: msg.role === "user" ? "white" : undefined,
+                  fontSize: 9, fontWeight: 800,
+                  color: msg.role === "user" ? "white" : "#1e3a5f",
+                  letterSpacing: "-0.5px",
                 }}>
-                  {msg.role === "user" ? <User size={13} /> : "🌸"}
+                  {msg.role === "user" ? <User size={13} /> : "KR"}
                 </div>
                 <div style={{ maxWidth: "80%", display: "flex", flexDirection: "column", gap: 6 }}>
                   {/* Message bubble */}
                   <div style={{
-                    background: msg.role === "user" ? "#15803d" : "#f9fafb",
+                    background: msg.role === "user" ? "#1e3a5f" : "#f9fafb",
                     color: msg.role === "user" ? "white" : "#111827",
                     padding: "10px 14px",
                     borderRadius: msg.role === "user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
@@ -553,7 +558,7 @@ export function AgentChat() {
 
                   {/* Action button */}
                   {msg.action && !msg.actionDone && (
-                    <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 12, padding: "10px 12px" }}>
+                    <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 12, padding: "10px 12px" }}>
                       {msg.action.missingFields && msg.action.missingFields.length > 0 && (
                         <p style={{ fontSize: 11, color: "#f59e0b", margin: "0 0 8px", display: "flex", alignItems: "center", gap: 4 }}>
                           <AlertTriangle size={11} />
@@ -564,7 +569,7 @@ export function AgentChat() {
                         onClick={() => executeAction(i, msg.action!)}
                         disabled={executingAction === `${i}`}
                         style={{
-                          background: "#15803d", color: "white", border: "none",
+                          background: "#1e3a5f", color: "white", border: "none",
                           borderRadius: 8, padding: "8px 14px", cursor: "pointer",
                           fontSize: 12, fontWeight: 700,
                           display: "flex", alignItems: "center", gap: 6,
@@ -577,8 +582,8 @@ export function AgentChat() {
                     </div>
                   )}
                   {msg.actionDone && (
-                    <div style={{ fontSize: 11, color: "#15803d", display: "flex", alignItems: "center", gap: 4, padding: "4px 8px" }}>
-                      <CheckCircle size={12} />Créé avec succès !
+                    <div style={{ fontSize: 11, color: "#1d4ed8", display: "flex", alignItems: "center", gap: 4, padding: "4px 8px" }}>
+                      <CheckCircle size={12} />Enregistré avec succès.
                     </div>
                   )}
 
@@ -587,7 +592,7 @@ export function AgentChat() {
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
                       {msg.quickReplies.map((qr, qi) => (
                         <button key={qi} onClick={() => sendMessage(qr)} style={{ fontSize: 11, padding: "5px 10px", borderRadius: 20, border: "1px solid #e5e7eb", color: "#374151", background: "white", cursor: "pointer", transition: "all 0.15s" }}
-                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "#f0fdf4"; (e.currentTarget as HTMLElement).style.borderColor = "#86efac"; }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "#eff6ff"; (e.currentTarget as HTMLElement).style.borderColor = "#93c5fd"; }}
                           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "white"; (e.currentTarget as HTMLElement).style.borderColor = "#e5e7eb"; }}>
                           {qr}
                         </button>
@@ -600,11 +605,11 @@ export function AgentChat() {
 
             {loading && (
               <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>🌸</div>
+                <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#eff6ff", border: "1px solid #bfdbfe", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, color: "#1e3a5f", letterSpacing: "-0.5px" }}>KR</div>
                 <div style={{ background: "#f9fafb", borderRadius: "18px 18px 18px 4px", padding: "12px 16px", border: "1px solid #e5e7eb" }}>
                   <div style={{ display: "flex", gap: 4 }}>
                     {[0, 1, 2].map(i => (
-                      <span key={i} style={{ width: 6, height: 6, background: "#16a34a", borderRadius: "50%", display: "inline-block", animation: `bounce 1.2s ${i * 0.2}s infinite` }} />
+                      <span key={i} style={{ width: 6, height: 6, background: "#1e3a5f", borderRadius: "50%", display: "inline-block", animation: `bounce 1.2s ${i * 0.2}s infinite` }} />
                     ))}
                   </div>
                 </div>
@@ -632,7 +637,7 @@ export function AgentChat() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Posez votre question ou décrivez un prestataire…"
+                placeholder="Posez votre question à l'expert…"
                 rows={1}
                 style={{
                   flex: 1, resize: "none", borderRadius: 14,
@@ -641,7 +646,7 @@ export function AgentChat() {
                   fontFamily: "inherit", lineHeight: 1.4,
                   transition: "border-color 0.2s",
                 }}
-                onFocus={e => (e.currentTarget.style.borderColor = "#16a34a")}
+                onFocus={e => (e.currentTarget.style.borderColor = "#1e3a5f")}
                 onBlur={e => (e.currentTarget.style.borderColor = "#e5e7eb")}
               />
               <button
@@ -649,7 +654,7 @@ export function AgentChat() {
                 disabled={!input.trim() || loading}
                 style={{
                   width: 38, height: 38,
-                  background: !input.trim() || loading ? "#e5e7eb" : "#15803d",
+                  background: !input.trim() || loading ? "#e5e7eb" : "#1e3a5f",
                   color: !input.trim() || loading ? "#9ca3af" : "white",
                   border: "none", borderRadius: "50%",
                   display: "flex", alignItems: "center", justifyContent: "center",
@@ -660,7 +665,7 @@ export function AgentChat() {
               </button>
             </div>
             <p style={{ fontSize: 10, color: "#d1d5db", textAlign: "center", margin: "5px 0 0" }}>
-              Entrée pour envoyer · Orchid connaît votre résidence en temps réel
+              Entrée pour envoyer · Expert en gestion immobilière & copropriété
             </p>
           </div>
         </div>
