@@ -288,44 +288,60 @@ Données temps réel :
 
 // ── Web search ─────────────────────────────────────────────────────────────────
 
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ]);
+}
+
 async function executeWebSearch(query: string): Promise<string> {
+  const TIMEOUT = 3000;
+  const fallback = `Recherche internet indisponible pour "${query}". Réponds selon tes connaissances.`;
+
   try {
     // Special case: weather
     if (/météo|weather|temps (qu'il fait|à casa)|pluie|vent/i.test(query)) {
       const city = query.match(/(?:à|in|pour)\s+([A-Za-zÀ-ÿ\s]+)/i)?.[1]?.trim() ?? "Casablanca";
-      const res = await fetch(`https://wttr.in/${encodeURIComponent(city)}?format=j1`, {
-        signal: AbortSignal.timeout(5000),
-      });
-      if (res.ok) {
-        const data = await res.json() as any;
-        const cur = data?.current_condition?.[0];
-        if (cur) {
-          const desc = cur.weatherDesc?.[0]?.value ?? "";
-          return `Météo ${city}: ${cur.temp_C}°C, ${desc}. Humidité: ${cur.humidity}%. Vent: ${cur.windspeedKmph} km/h.`;
-        }
+      const data = await withTimeout(
+        fetch(`https://wttr.in/${encodeURIComponent(city)}?format=j1`).then(r => r.json()),
+        TIMEOUT,
+        null
+      ) as any;
+      const cur = data?.current_condition?.[0];
+      if (cur) {
+        return `Météo ${city}: ${cur.temp_C}°C, ${cur.weatherDesc?.[0]?.value ?? ""}. Humidité: ${cur.humidity}%. Vent: ${cur.windspeedKmph} km/h.`;
       }
     }
 
     // DuckDuckGo Instant Answers
     const ddgUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1&no_redirect=1`;
-    const ddgRes = await fetch(ddgUrl, { signal: AbortSignal.timeout(6000) });
-    const ddgData = await ddgRes.json() as any;
+    const ddgData = await withTimeout(
+      fetch(ddgUrl).then(r => r.json()),
+      TIMEOUT,
+      null
+    ) as any;
+
+    if (!ddgData) return fallback;
 
     const parts: string[] = [];
     if (ddgData.AbstractText) parts.push(ddgData.AbstractText);
-    if (ddgData.Answer) parts.push(`Réponse directe: ${ddgData.Answer}`);
+    if (ddgData.Answer) parts.push(`Réponse: ${ddgData.Answer}`);
     if (ddgData.Definition) parts.push(ddgData.Definition);
-    const topics = (ddgData.RelatedTopics ?? [])
-      .slice(0, 4)
-      .map((t: any) => t.Text)
-      .filter(Boolean);
-    if (topics.length > 0) parts.push(topics.join("\n"));
+    (ddgData.RelatedTopics ?? []).slice(0, 3).map((t: any) => t.Text).filter(Boolean).forEach((t: string) => parts.push(t));
 
-    if (parts.length > 0) return parts.join("\n\n");
-    return `Pas de résultat direct pour "${query}". Utilise tes connaissances pour répondre.`;
+    return parts.length > 0 ? parts.join("\n\n") : fallback;
   } catch {
-    return `Recherche internet échouée pour "${query}". Réponds selon tes connaissances.`;
+    return fallback;
   }
+}
+
+// Detect if message needs web search (avoid calling it for pure DB tasks)
+function needsWebSearch(message: string): boolean {
+  const localKeywords = /facture|dépense|relevé|compteur|tâche|personnel|gardien|ménage|prestataire|occupant|intervention|paiement|loyer|index|kWh|m³/i;
+  const webKeywords = /prix|tarif|météo|weather|actualité|loi|règlement|taux|cours|marché immobilier|cherche sur internet|recherche/i;
+  if (localKeywords.test(message) && !webKeywords.test(message)) return false;
+  return webKeywords.test(message);
 }
 
 // ── Helpers mémoire ────────────────────────────────────────────────────────────
@@ -422,19 +438,21 @@ export async function POST(req: NextRequest) {
     { role: "user" as const, content: message },
   ];
 
-  // Tool use loop (for web search)
+  // Only offer web search when message actually needs it
+  const useWebSearch = needsWebSearch(message);
+
+  // Tool use loop (max 2 iterations to avoid hanging)
   let finalRaw = "";
   let loopCount = 0;
 
-  while (loopCount < 5) {
+  while (loopCount < 2) {
     loopCount++;
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 2000,
       system: systemWithContext,
       messages: currentMessages,
-      tools: [WEB_SEARCH_TOOL],
-      tool_choice: { type: "auto" },
+      ...(useWebSearch ? { tools: [WEB_SEARCH_TOOL], tool_choice: { type: "auto" } } : {}),
     });
 
     if (response.stop_reason === "tool_use") {
