@@ -369,42 +369,89 @@ function needsWebSearch(message: string): boolean {
   return webKeywords.test(message);
 }
 
-// ── Helpers mémoire ────────────────────────────────────────────────────────────
+// ── Mémoire persistante ────────────────────────────────────────────────────────
 
 async function getMemoryContext(userId: string): Promise<string> {
   try {
-    const memories = await prisma.agentMemory.findMany({
-      where: { key: { startsWith: `user:${userId}:` } },
-      orderBy: { updatedAt: "desc" },
-      take: 20,
-    });
-    if (memories.length === 0) return "";
-    const lines = memories.map(m => `- ${m.key.split(":").pop()}: ${m.value}${m.context ? ` (${m.context})` : ""}`);
-    return `\n\n=== MÉMOIRE PERSISTANTE (sessions précédentes) ===\n${lines.join("\n")}`;
+    const [userMemories, sessionSummary, projectContext] = await Promise.all([
+      // Métadonnées utilisateur
+      prisma.agentMemory.findMany({
+        where: { key: { startsWith: `user:${userId}:` } },
+        orderBy: { updatedAt: "desc" },
+        take: 30,
+      }),
+      // Résumé de la dernière session
+      prisma.agentMemory.findUnique({ where: { key: `session:${userId}:summary` } }),
+      // Contexte projet global (partagé entre tous les utilisateurs)
+      prisma.agentMemory.findMany({
+        where: { key: { startsWith: "project:" } },
+        orderBy: { updatedAt: "desc" },
+        take: 20,
+      }),
+    ]);
+
+    const parts: string[] = [];
+
+    if (sessionSummary) {
+      parts.push(`=== RÉSUMÉ SESSION PRÉCÉDENTE (${sessionSummary.context ?? ""}) ===\n${sessionSummary.value}`);
+    }
+
+    if (userMemories.length > 0) {
+      const lines = userMemories
+        .filter(m => !m.key.endsWith(":langue") && !m.key.endsWith(":derniere_action"))
+        .map(m => `- ${m.key.split(":").pop()}: ${m.value}${m.context ? ` (${m.context})` : ""}`);
+      if (lines.length > 0) parts.push(`=== MÉMOIRE UTILISATEUR ===\n${lines.join("\n")}`);
+    }
+
+    if (projectContext.length > 0) {
+      const lines = projectContext.map(m => `- ${m.key.replace("project:", "")}: ${m.value}`);
+      parts.push(`=== CONTEXTE PROJET ===\n${lines.join("\n")}`);
+    }
+
+    return parts.length > 0 ? "\n\n" + parts.join("\n\n") : "";
   } catch { return ""; }
 }
 
-async function saveMemoryFacts(userId: string, _reply: string, message: string) {
+async function saveMemoryFacts(userId: string, reply: string, message: string) {
   try {
+    const today = new Date().toISOString().split("T")[0];
     const facts: { key: string; value: string; context?: string }[] = [];
 
+    // Langue
     if (/[ا-ي]/.test(message)) {
-      facts.push({ key: `user:${userId}:langue`, value: "ar", context: "détecté depuis message" });
+      facts.push({ key: `user:${userId}:langue`, value: "ar" });
     } else if (message.length > 10) {
-      facts.push({ key: `user:${userId}:langue`, value: "fr", context: "détecté depuis message" });
+      facts.push({ key: `user:${userId}:langue`, value: "fr" });
     }
 
-    facts.push({
-      key: `user:${userId}:derniere_action`,
-      value: message.slice(0, 120),
-      context: new Date().toISOString().split("T")[0],
-    });
+    // Dernière action
+    facts.push({ key: `user:${userId}:derniere_action`, value: message.slice(0, 200), context: today });
 
+    // Montants mentionnés
+    const montantMatch = message.match(/(\d[\d\s]*(?:\.\d+)?)\s*(?:MAD|DH|dirham)/i);
+    if (montantMatch) {
+      facts.push({ key: `user:${userId}:dernier_montant`, value: montantMatch[1].trim() + " MAD", context: today });
+    }
+
+    // Unités mentionnées
+    const uniteMatch = message.match(/\b(A\d{1,2}|MAG\d|CONCIERGE|SS[12]|RDC)\b/i);
+    if (uniteMatch) {
+      facts.push({ key: `user:${userId}:derniere_unite`, value: uniteMatch[1].toUpperCase(), context: today });
+    }
+
+    // Prestataires mentionnés
     const prestMatch = message.match(/(?:prestataire|société|entreprise|devis)[:\s]+([A-ZÀÁÂÉÊÈÎÔÙ][a-zA-ZÀ-ÿ\s]{3,40})/i);
     if (prestMatch) {
-      facts.push({ key: `user:${userId}:dernier_prestataire`, value: prestMatch[1].trim(), context: "mentionné dans le chat" });
+      facts.push({ key: `user:${userId}:dernier_prestataire`, value: prestMatch[1].trim(), context: today });
     }
 
+    // Personnel mentionné
+    const staffMatch = message.match(/(?:femme de ménage|gardien|nettoyage|ménage)[:\s]+([A-ZÀÁÂÉÊÈÎÔÙ][a-zA-ZÀ-ÿ\s]{2,30})/i);
+    if (staffMatch) {
+      facts.push({ key: `user:${userId}:personnel_mentionne`, value: staffMatch[1].trim(), context: today });
+    }
+
+    // Sauvegarder les faits
     await Promise.all(facts.map(f =>
       prisma.agentMemory.upsert({
         where: { key: f.key },
@@ -412,7 +459,109 @@ async function saveMemoryFacts(userId: string, _reply: string, message: string) 
         update: { value: f.value, context: f.context ?? null },
       })
     ));
+
+    // Sauvegarder l'échange complet en base de données (AgentConversation)
+    saveConversationToDB(userId, message, reply).catch(() => {});
+
   } catch { /* silently ignore */ }
+}
+
+async function saveConversationToDB(userId: string, userMessage: string, assistantReply: string) {
+  try {
+    // Trouver ou créer la conversation du jour
+    const today = new Date().toISOString().split("T")[0];
+    const convKey = `conv:${userId}:${today}`;
+
+    let conv = await prisma.agentConversation.findFirst({
+      where: { userId, updatedAt: { gte: new Date(today) } },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    if (!conv) {
+      conv = await prisma.agentConversation.create({ data: { userId } });
+    }
+
+    await prisma.agentMessage.createMany({
+      data: [
+        { conversationId: conv.id, role: "USER", content: userMessage.slice(0, 2000) },
+        { conversationId: conv.id, role: "ASSISTANT", content: assistantReply.slice(0, 2000) },
+      ],
+    });
+
+    // Mettre à jour updatedAt
+    await prisma.agentConversation.update({ where: { id: conv.id }, data: { updatedAt: new Date() } });
+
+    // Générer un résumé de session toutes les 10 messages (non bloquant)
+    const msgCount = await prisma.agentMessage.count({ where: { conversationId: conv.id } });
+    if (msgCount > 0 && msgCount % 10 === 0) {
+      generateSessionSummary(userId, conv.id).catch(() => {});
+    }
+  } catch { /* silently ignore */ }
+}
+
+async function generateSessionSummary(userId: string, convId: string) {
+  try {
+    const messages = await prisma.agentMessage.findMany({
+      where: { conversationId: convId },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    });
+    if (messages.length < 4) return;
+
+    const transcript = messages
+      .reverse()
+      .map(m => `${m.role === "USER" ? "Utilisateur" : "Karim"}: ${m.content}`)
+      .join("\n");
+
+    const summaryRes = await anthropic.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 400,
+      messages: [{
+        role: "user",
+        content: `Résume en 5-8 points clés cette conversation de gestion immobilière. Format: bullet points courts. Focus: décisions prises, données saisies, problèmes identifiés, informations importantes partagées.\n\n${transcript}`,
+      }],
+    });
+
+    const summary = summaryRes.content[0].type === "text" ? summaryRes.content[0].text : "";
+    if (!summary) return;
+
+    await prisma.agentMemory.upsert({
+      where: { key: `session:${userId}:summary` },
+      create: { key: `session:${userId}:summary`, value: summary, context: new Date().toISOString().split("T")[0] },
+      update: { value: summary, context: new Date().toISOString().split("T")[0] },
+    });
+  } catch { /* silently ignore */ }
+}
+
+// ── Récupération historique conversations ──────────────────────────────────────
+
+async function getRecentConversationHistory(userId: string): Promise<string> {
+  try {
+    const yesterday = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // 7 derniers jours
+    const conversations = await prisma.agentConversation.findMany({
+      where: { userId, updatedAt: { gte: yesterday } },
+      orderBy: { updatedAt: "desc" },
+      take: 3,
+      include: {
+        messages: {
+          orderBy: { createdAt: "desc" },
+          take: 10,
+        },
+      },
+    });
+
+    if (conversations.length === 0) return "";
+
+    const lines: string[] = ["=== HISTORIQUE CONVERSATIONS (7 derniers jours) ==="];
+    for (const conv of conversations) {
+      const date = conv.updatedAt.toLocaleDateString("fr-MA");
+      lines.push(`\n— Session du ${date} :`);
+      conv.messages.reverse().forEach(m => {
+        lines.push(`  ${m.role === "USER" ? "Q" : "R"}: ${m.content.slice(0, 150)}${m.content.length > 150 ? "…" : ""}`);
+      });
+    }
+    return "\n\n" + lines.join("\n");
+  } catch { return ""; }
 }
 
 // ── Web search tool definition ────────────────────────────────────────────────
@@ -449,12 +598,13 @@ export async function POST(req: NextRequest) {
 
   if (!message?.trim()) return NextResponse.json({ error: "Message vide" }, { status: 400 });
 
-  const [context, memoryContext] = await Promise.all([
+  const [context, memoryContext, historyContext] = await Promise.all([
     buildResidenceContext(),
     getMemoryContext(userId),
+    getRecentConversationHistory(userId),
   ]);
 
-  const systemWithContext = SYSTEM_PROMPT.replace("{CONTEXT}", context + memoryContext) +
+  const systemWithContext = SYSTEM_PROMPT.replace("{CONTEXT}", context + memoryContext + historyContext) +
     (pageContext ? `\n\nPage actuelle de l'utilisateur: ${pageContext}` : "");
 
   const recentHistory = history.slice(-12);
