@@ -3,7 +3,17 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useLang } from "@/contexts/LangContext";
-import { agentCreatePrestataire, agentGetAlertCount } from "@/actions/agentActions";
+import {
+  agentCreatePrestataire,
+  agentCreateInvoice,
+  agentMarkInvoicePaid,
+  agentCreateReading,
+  agentCreateExpense,
+  agentCreateIntervention,
+  agentCreateStaffTask,
+  agentCreateStaffPayment,
+  agentGetAlertCount,
+} from "@/actions/agentActions";
 import {
   X, Send, Trash2, Bot, User, Loader2,
   Sparkles, ChevronRight, Plus, AlertTriangle,
@@ -11,7 +21,17 @@ import {
 } from "lucide-react";
 
 interface AgentAction {
-  type: "CREATE_PRESTATAIRE" | "NAVIGATE" | "SHOW_ALERT_SUMMARY";
+  type:
+    | "CREATE_PRESTATAIRE"
+    | "NAVIGATE"
+    | "SHOW_ALERT_SUMMARY"
+    | "CREATE_INVOICE"
+    | "MARK_INVOICE_PAID"
+    | "CREATE_READING"
+    | "CREATE_EXPENSE"
+    | "CREATE_INTERVENTION"
+    | "CREATE_STAFF_TASK"
+    | "CREATE_STAFF_PAYMENT";
   label: string;
   payload: Record<string, unknown>;
   missingFields?: string[];
@@ -36,6 +56,13 @@ const PAGE_SUGGESTIONS: Record<string, string[]> = {
   "/dashboard/expenses": ["Dépenses ce mois", "Comparer mois dernier", "Répartir les frères"],
   "/dashboard/lots": ["Lots disponibles", "Meilleur lot à vendre", "Simuler revenu vente"],
   "/dashboard/units": ["Unités vacantes", "Occupants actifs", "Compteurs à relever"],
+  "/dashboard/readings": ["Dernier relevé", "Anomalie consommation", "Enregistrer relevé"],
+  "/dashboard/meters": ["Compteurs actifs", "Dernier relevé eau", "Dernier relevé élec"],
+  "/dashboard/personnel": ["Tâches de la semaine", "Paiement du mois", "Planning prochain"],
+  "/dashboard/occupants": ["Occupants actifs", "Contrats expirant", "Nouveau occupant"],
+  "/dashboard/documents": ["Documents officiels", "Nouveau document", "Rechercher permis"],
+  "/dashboard/alerts": ["Alertes critiques", "Marquer lues", "Résumé alertes"],
+  "/dashboard/admin/data": ["Corriger index compteur", "Modifier occupant", "Historique modifications"],
 };
 
 function getSuggestions(pathname: string): string[] {
@@ -57,6 +84,14 @@ function getPageLabel(pathname: string): string {
     "/dashboard/units": "Unités",
     "/dashboard/meters": "Compteurs",
     "/dashboard/readings": "Relevés",
+    "/dashboard/personnel": "Personnel",
+    "/dashboard/occupants": "Occupants",
+    "/dashboard/documents": "Documents",
+    "/dashboard/alerts": "Alertes",
+    "/dashboard/profile": "Profil",
+    "/dashboard/admin/data": "Admin — Données",
+    "/dashboard/admin/documents": "Admin — Documents",
+    "/dashboard/scan": "Scan intelligent",
   };
   for (const [path, label] of Object.entries(labels)) {
     if (pathname === path || pathname.startsWith(path + "/")) return label;
@@ -75,6 +110,24 @@ const DOC_TYPE_CHAT: Record<string, { icon: string; label: string }> = {
   other: { icon: "📁", label: "Document" },
 };
 
+const STORAGE_KEY = "orchid_chat_history";
+const MAX_STORED = 40;
+
+function loadMessages(): Message[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return parsed.map((m: Message) => ({ ...m, timestamp: new Date(m.timestamp) }));
+  } catch { return []; }
+}
+
+function saveMessages(msgs: Message[]) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(msgs.slice(-MAX_STORED)));
+  } catch {}
+}
+
 export function AgentChat() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -89,6 +142,16 @@ export function AgentChat() {
   const { isRtl } = useLang();
   const pathname = usePathname();
   const router = useRouter();
+
+  // Load history from localStorage on mount
+  useEffect(() => {
+    setMessages(loadMessages());
+  }, []);
+
+  // Save to localStorage whenever messages change
+  useEffect(() => {
+    if (messages.length > 0) saveMessages(messages);
+  }, [messages]);
 
   // Fetch alert count on mount
   useEffect(() => {
@@ -148,30 +211,111 @@ export function AgentChat() {
   async function executeAction(msgIndex: number, action: AgentAction) {
     setExecutingAction(`${msgIndex}`);
     try {
+      const p = action.payload as any;
+
       if (action.type === "CREATE_PRESTATAIRE") {
-        const p = action.payload as any;
         await agentCreatePrestataire({
-          metier: p.metier,
-          nomSociete: p.nomSociete,
-          responsable: p.responsable,
-          telephone: p.telephone,
-          adresse: p.adresse,
-          montantMarche: p.montantMarche,
-          metierData: p.metierData,
-          notes: p.notes,
+          metier: p.metier, nomSociete: p.nomSociete, responsable: p.responsable,
+          telephone: p.telephone, adresse: p.adresse, montantMarche: p.montantMarche,
+          metierData: p.metierData, notes: p.notes,
         });
         setMessages((prev) => prev.map((m, i) => i === msgIndex ? { ...m, actionDone: true } : m));
         router.refresh();
-        await sendMessage(`La fiche de ${p.nomSociete} a été créée. Qu'est-ce qu'il me manque encore pour compléter la fiche ?`);
+        await sendMessage(`✅ La fiche de ${p.nomSociete} a été créée. Qu'est-ce qu'il me manque encore ?`);
+
+      } else if (action.type === "CREATE_INVOICE") {
+        const id = await agentCreateInvoice({
+          unitName: p.unitName, serviceType: p.serviceType, reference: p.reference,
+          amount: p.amount, period: p.period, dueDate: p.dueDate,
+          previousIndex: p.previousIndex, currentIndex: p.currentIndex,
+        });
+        setMessages((prev) => prev.map((m, i) => i === msgIndex ? { ...m, actionDone: true } : m));
+        router.refresh();
+        await sendMessage(`✅ Facture créée (ID: ${id}) pour ${p.unitName} — ${p.amount} MAD. Voulez-vous la marquer comme payée ?`);
+
+      } else if (action.type === "MARK_INVOICE_PAID") {
+        await agentMarkInvoicePaid({ invoiceId: p.invoiceId, paid: p.paid });
+        setMessages((prev) => prev.map((m, i) => i === msgIndex ? { ...m, actionDone: true } : m));
+        router.refresh();
+        await sendMessage(`✅ Facture marquée comme ${p.paid !== false ? "payée" : "impayée"}.`);
+
+      } else if (action.type === "CREATE_READING") {
+        await agentCreateReading({
+          unitName: p.unitName, serviceType: p.serviceType, value: p.value,
+          previousValue: p.previousValue, date: p.date, notes: p.notes,
+        });
+        setMessages((prev) => prev.map((m, i) => i === msgIndex ? { ...m, actionDone: true } : m));
+        router.refresh();
+        await sendMessage(`✅ Relevé enregistré pour ${p.unitName} : ${p.value}.`);
+
+      } else if (action.type === "CREATE_EXPENSE") {
+        await agentCreateExpense({
+          title: p.title, amount: p.amount, categoryCode: p.categoryCode,
+          description: p.description, date: p.date,
+        });
+        setMessages((prev) => prev.map((m, i) => i === msgIndex ? { ...m, actionDone: true } : m));
+        router.refresh();
+        await sendMessage(`✅ Dépense "${p.title}" (${p.amount} MAD) enregistrée.`);
+
+      } else if (action.type === "CREATE_INTERVENTION") {
+        await agentCreateIntervention({ title: p.title, description: p.description, date: p.date });
+        setMessages((prev) => prev.map((m, i) => i === msgIndex ? { ...m, actionDone: true } : m));
+        router.refresh();
+        await sendMessage(`✅ Intervention "${p.title}" créée.`);
+
+      } else if (action.type === "CREATE_STAFF_TASK") {
+        await agentCreateStaffTask({
+          staffName: p.staffName, date: p.date, areas: p.areas,
+          duration: p.duration, status: p.status, notes: p.notes,
+        });
+        setMessages((prev) => prev.map((m, i) => i === msgIndex ? { ...m, actionDone: true } : m));
+        router.refresh();
+        await sendMessage(`✅ Tâche enregistrée pour ${p.staffName} le ${p.date}.`);
+
+      } else if (action.type === "CREATE_STAFF_PAYMENT") {
+        await agentCreateStaffPayment({
+          staffName: p.staffName, amount: p.amount, date: p.date,
+          period: p.period, notes: p.notes,
+        });
+        setMessages((prev) => prev.map((m, i) => i === msgIndex ? { ...m, actionDone: true } : m));
+        router.refresh();
+        await sendMessage(`✅ Paiement de ${p.amount} MAD enregistré pour ${p.staffName}.`);
+
       } else if (action.type === "NAVIGATE") {
-        router.push((action.payload as any).href);
+        router.push(p.href);
         setOpen(false);
       }
-    } catch {
-      setError("Erreur lors de l'exécution de l'action.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erreur lors de l'exécution de l'action.");
     } finally {
       setExecutingAction(null);
     }
+  }
+
+  async function compressImage(file: File): Promise<File> {
+    if (!file.type.startsWith("image/")) return file;
+    return new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const MAX = 1600;
+        let { width, height } = img;
+        if (width > MAX || height > MAX) {
+          if (width > height) { height = Math.round(height * MAX / width); width = MAX; }
+          else { width = Math.round(width * MAX / height); height = MAX; }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width; canvas.height = height;
+        canvas.getContext("2d")!.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(blob => {
+          if (blob) resolve(new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" }));
+          else resolve(file);
+        }, "image/jpeg", 0.82);
+      };
+      img.onerror = () => resolve(file);
+      img.src = url;
+    });
   }
 
   async function handleScanInChat(file: File) {
@@ -180,21 +324,58 @@ export function AgentChat() {
     const userMsg: Message = { role: "user", content: `📎 ${file.name}`, timestamp: new Date() };
     setMessages(prev => [...prev, userMsg]);
     try {
+      const compressed = await compressImage(file);
+      // Step 1: Analyze
       const fd = new FormData();
+      fd.append("file", compressed);
       fd.append("file", file);
       const res = await fetch("/api/scan/analyze", { method: "POST", body: fd });
       const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error ?? `Erreur ${res.status}`);
       const meta = DOC_TYPE_CHAT[data.docType] ?? { icon: "📄", label: data.docType };
       const dataLines = Object.entries(data.data ?? {})
         .filter(([, v]) => v !== null && v !== undefined && v !== "")
         .slice(0, 6)
-        .map(([k, v]) => `• ${k}: **${v}**`)
+        .map(([k, v]) => `• ${k}: ${v}`)
         .join("\n");
-      const actionsLines = (data.suggestedActions ?? []).map((a: { label: string }) => `✅ ${a.label}`).join("\n");
-      const reply = `${meta.icon} **${meta.label}** détecté (${data.confidence}%)\n\n${data.title}\n\n${dataLines ? `**Données extraites:**\n${dataLines}\n\n` : ""}${actionsLines ? `**Actions proposées:**\n${actionsLines}\n\nVa sur [Scan intelligent](/dashboard/scan) pour confirmer.` : "Aucune action automatique possible."}`;
-      setMessages(prev => [...prev, { role: "assistant", content: reply, timestamp: new Date(), quickReplies: ["Confirmer les actions", "Aller au Scan", "Nouveau document"] }]);
-    } catch {
-      setError("Échec analyse document.");
+
+      const autoActions = (data.suggestedActions ?? []).filter((a: { priority: number }) => a.priority <= 2);
+
+      if (autoActions.length === 0 || data.confidence < 40) {
+        const reply = `${meta.icon} ${meta.label} détecté (${data.confidence}%)\n\n${data.title}${dataLines ? `\n\nDonnées extraites :\n${dataLines}` : ""}\n\nAucune action automatique — confidence insuffisante.`;
+        setMessages(prev => [...prev, { role: "assistant", content: reply, timestamp: new Date(), quickReplies: ["Aller au Scan intelligent", "Nouveau document"] }]);
+        return;
+      }
+
+      // Step 2: Upload to Cloudinary
+      const upFd = new FormData();
+      upFd.append("file", compressed);
+      upFd.append("entityType", "scan");
+      upFd.append("entityId", "chat-" + Date.now());
+      const upRes = await fetch("/api/upload", { method: "POST", body: upFd });
+      const { url, error: upErr } = await upRes.json();
+      if (upErr || !url) throw new Error(upErr ?? "Échec upload");
+
+      // Step 3: Execute actions
+      const { smartIntakeConfirm } = await import("@/actions/smart-intake");
+      const result = await smartIntakeConfirm({
+        fileUrl: url,
+        fileName: file.name,
+        docType: data.docType,
+        confidence: data.confidence,
+        linkedUnit: data.linkedUnit,
+        linkedMeter: data.linkedMeter,
+        data: data.data,
+        selectedActions: autoActions,
+      });
+
+      const doneLines = result.done.map((d: string) => `✅ ${d}`).join("\n");
+      const errLines = result.errors.map((e: string) => `⚠️ ${e}`).join("\n");
+      const reply = `${meta.icon} ${meta.label} traité !\n\n${data.title}${dataLines ? `\n\nDonnées extraites :\n${dataLines}` : ""}\n\n${doneLines}${errLines ? `\n${errLines}` : ""}`;
+      setMessages(prev => [...prev, { role: "assistant", content: reply, timestamp: new Date(), quickReplies: ["Voir les résultats", "Nouveau document"] }]);
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Échec traitement document.");
     } finally {
       setLoading(false);
     }
@@ -302,7 +483,7 @@ export function AgentChat() {
                 </button>
               )}
               {messages.length > 0 && (
-                <button onClick={() => setMessages([])} style={{ background: "none", border: "none", borderRadius: 8, padding: "6px", cursor: "pointer", color: "#86efac" }}>
+                <button onClick={() => { setMessages([]); localStorage.removeItem(STORAGE_KEY); }} style={{ background: "none", border: "none", borderRadius: 8, padding: "6px", cursor: "pointer", color: "#86efac" }} title="Effacer la conversation">
                   <Trash2 size={14} />
                 </button>
               )}
