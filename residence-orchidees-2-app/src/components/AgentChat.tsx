@@ -111,14 +111,28 @@ const DOC_TYPE_CHAT: Record<string, { icon: string; label: string }> = {
 };
 
 const STORAGE_KEY = "karim_expert_history";
+const OLD_STORAGE_KEY = "orchid_chat_history";
 const MAX_STORED = 40;
 
 function loadMessages(): Message[] {
   try {
+    // Charger depuis la clé Karim en priorité
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return parsed.map((m: Message) => ({ ...m, timestamp: new Date(m.timestamp) }));
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return parsed.map((m: Message) => ({ ...m, timestamp: new Date(m.timestamp) }));
+    }
+    // Migration automatique depuis l'ancienne clé Orchid
+    const oldRaw = localStorage.getItem(OLD_STORAGE_KEY);
+    if (oldRaw) {
+      const parsed = JSON.parse(oldRaw);
+      const msgs = parsed.map((m: Message) => ({ ...m, timestamp: new Date(m.timestamp) }));
+      // Sauvegarder sous la nouvelle clé et supprimer l'ancienne
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(msgs.slice(-MAX_STORED)));
+      localStorage.removeItem(OLD_STORAGE_KEY);
+      return msgs;
+    }
+    return [];
   } catch { return []; }
 }
 
