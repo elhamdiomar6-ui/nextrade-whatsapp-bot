@@ -1,8 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { useLang } from "@/contexts/LangContext";
-import { Gauge, Droplets, Zap, Flame, Wifi, Phone, CheckCircle, Clock } from "lucide-react";
+import { Gauge, Droplets, Zap, Flame, Wifi, Phone, CheckCircle, Clock, ChevronDown, ChevronUp } from "lucide-react";
 import type { ServiceType, SubscriptionScope } from "@prisma/client";
+import { AttachmentsPanel } from "@/components/AttachmentsPanel";
+import type { AttachmentRow } from "@/actions/attachments";
 
 interface MeterRow {
   id: string;
@@ -11,6 +14,7 @@ interface MeterRow {
   unitName: string;
   scope: SubscriptionScope;
   lastReading: { value: number; date: string; validated: boolean } | null;
+  attachments: AttachmentRow[];
 }
 
 const serviceIcon: Record<ServiceType, React.ReactNode> = {
@@ -33,6 +37,7 @@ const serviceLabel: Record<ServiceType, { fr: string; ar: string }> = {
 
 export function MetersClient({ meters }: { meters: MeterRow[] }) {
   const { lang, isRtl } = useLang();
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   return (
     <div dir={isRtl ? "rtl" : "ltr"} className="space-y-4">
@@ -55,42 +60,40 @@ export function MetersClient({ meters }: { meters: MeterRow[] }) {
           </thead>
           <tbody className="divide-y divide-gray-50">
             {meters.map((m) => (
-              <tr key={m.id} className="hover:bg-gray-50 transition-colors">
-                <td className="px-4 py-3 font-mono text-xs text-gray-700">{m.serialNumber}</td>
-                <td className="px-4 py-3 hidden sm:table-cell">
-                  <span className="font-medium text-gray-900">{m.unitName}</span>
-                  {m.scope === "GENERAL" && (
-                    <span className="ml-1.5 text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full">
-                      {lang === "fr" ? "Général" : "عام"}
-                    </span>
-                  )}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-1.5">
-                    {serviceIcon[m.serviceType]}
-                    <span className="text-gray-600 text-xs hidden sm:inline">{serviceLabel[m.serviceType][lang]}</span>
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-end">
-                  {m.lastReading ? (
-                    <div>
-                      <p className="font-semibold text-gray-800">{m.lastReading.value} m³</p>
-                      <p className="text-xs text-gray-400">
-                        {new Date(m.lastReading.date).toLocaleDateString(lang === "fr" ? "fr-MA" : "ar-MA", { day: "2-digit", month: "short" })}
-                      </p>
+              <>
+                <tr key={m.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => setExpandedId(expandedId === m.id ? null : m.id)}>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-700">{m.serialNumber}</td>
+                  <td className="px-4 py-3 hidden sm:table-cell">
+                    <span className="font-medium text-gray-900">{m.unitName}</span>
+                    {m.scope === "GENERAL" && <span className="ml-1.5 text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full">{lang === "fr" ? "Général" : "عام"}</span>}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1.5">
+                      {serviceIcon[m.serviceType]}
+                      <span className="text-gray-600 text-xs hidden sm:inline">{serviceLabel[m.serviceType][lang]}</span>
                     </div>
-                  ) : (
-                    <span className="text-gray-300 text-xs">{lang === "fr" ? "Aucun" : "لا توجد"}</span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-center hidden sm:table-cell">
-                  {m.lastReading?.validated ? (
-                    <CheckCircle size={16} className="text-green-500 inline" />
-                  ) : (
-                    <Clock size={16} className="text-amber-400 inline" />
-                  )}
-                </td>
-              </tr>
+                  </td>
+                  <td className="px-4 py-3 text-end">
+                    {m.lastReading ? (
+                      <div>
+                        <p className="font-semibold text-gray-800">{m.lastReading.value} m³</p>
+                        <p className="text-xs text-gray-400">{new Date(m.lastReading.date).toLocaleDateString(lang === "fr" ? "fr-MA" : "ar-MA", { day: "2-digit", month: "short" })}</p>
+                      </div>
+                    ) : <span className="text-gray-300 text-xs">{lang === "fr" ? "Aucun" : "لا توجد"}</span>}
+                  </td>
+                  <td className="px-4 py-3 text-center hidden sm:table-cell">
+                    {m.lastReading?.validated ? <CheckCircle size={16} className="text-green-500 inline" /> : <Clock size={16} className="text-amber-400 inline" />}
+                  </td>
+                  <td className="px-3 py-3 text-gray-400">{expandedId === m.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}</td>
+                </tr>
+                {expandedId === m.id && (
+                  <tr key={`${m.id}-att`}>
+                    <td colSpan={6} className="px-4 pb-3 bg-gray-50">
+                      <AttachmentsPanel entityType="meter" entityId={m.id} initialAttachments={m.attachments} collapsible={false} defaultOpen />
+                    </td>
+                  </tr>
+                )}
+              </>
             ))}
           </tbody>
         </table>

@@ -1,11 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useLang } from "@/contexts/LangContext";
+import { PwaInstallButton } from "@/components/PwaInstallButton";
 
 const fmt = (n: number) => new Intl.NumberFormat("fr-FR").format(Math.round(n));
 import {
   Building2, Gauge, Wrench, Bell, TrendingUp,
   AlertTriangle, CheckCircle, BarChart3, PieChart, Star, Zap,
+  Camera, FileBarChart, MessageSquare, Smartphone,
 } from "lucide-react";
 
 interface Reading {
@@ -206,6 +209,83 @@ export function DashboardClient({ stats, userName, userRole }: Props) {
           <span className="text-base font-normal text-gray-400">MAD</span>
         </p>
       </div>
+
+      {/* ── Fonctionnalités IA ───────────────────────────────────────────── */}
+      {!isViewer && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
+            <span className="text-base">✨</span>
+            <h3 className="font-semibold text-gray-800 text-sm">
+              {lang === "fr" ? "Fonctionnalités intelligentes" : "الميزات الذكية"}
+            </h3>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-0 divide-x divide-y divide-gray-100">
+            {/* Photo IA */}
+            <Link href="/dashboard/readings" className="flex flex-col items-start gap-2 p-4 hover:bg-purple-50 transition-colors group">
+              <div className="w-9 h-9 bg-purple-100 rounded-xl flex items-center justify-center group-hover:bg-purple-200 transition-colors">
+                <Camera size={18} className="text-purple-600" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-800">
+                  {lang === "fr" ? "Relevé par photo" : "قراءة بالصورة"}
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {lang === "fr" ? "L'IA lit l'index automatiquement" : "الذكاء يقرأ الفهرس"}
+                </p>
+                <span className="inline-block mt-1.5 text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full font-bold">IA</span>
+              </div>
+            </Link>
+
+            {/* Rapports PDF */}
+            <Link href="/dashboard/reports" className="flex flex-col items-start gap-2 p-4 hover:bg-green-50 transition-colors group">
+              <div className="w-9 h-9 bg-green-100 rounded-xl flex items-center justify-center group-hover:bg-green-200 transition-colors">
+                <FileBarChart size={18} className="text-green-600" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-800">
+                  {lang === "fr" ? "Rapports PDF" : "تقارير PDF"}
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {lang === "fr" ? "Mensuel, annuel, copropriétaires" : "شهري وسنوي"}
+                </p>
+                <span className="inline-block mt-1.5 text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-bold">PDF</span>
+              </div>
+            </Link>
+
+            {/* WhatsApp */}
+            <Link href="/dashboard/whatsapp" className="flex flex-col items-start gap-2 p-4 hover:bg-emerald-50 transition-colors group">
+              <div className="w-9 h-9 bg-emerald-100 rounded-xl flex items-center justify-center group-hover:bg-emerald-200 transition-colors">
+                <MessageSquare size={18} className="text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-800">
+                  {lang === "fr" ? "Alertes WhatsApp" : "تنبيهات واتساب"}
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {lang === "fr" ? "Anomalies, interventions, résumé" : "شذوذات وتدخلات"}
+                </p>
+                <span className="inline-block mt-1.5 text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-bold">AUTO</span>
+              </div>
+            </Link>
+
+            {/* PWA */}
+            <div className="flex flex-col items-start gap-2 p-4">
+              <div className="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center">
+                <Smartphone size={18} className="text-blue-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-gray-800">
+                  {lang === "fr" ? "Installer l'app" : "تثبيت التطبيق"}
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5 mb-2">
+                  {lang === "fr" ? "Accès depuis l'écran d'accueil" : "وصول من الشاشة الرئيسية"}
+                </p>
+                <PwaInstallButton />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Derniers relevés ─────────────────────────────────────────────── */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">

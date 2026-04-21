@@ -140,6 +140,9 @@ export function InterventionsClient({ interventions }: { interventions: Interven
                   entityType="intervention"
                   entityId={i.id}
                   initialAttachments={i.attachments}
+                  phases
+                  collapsible
+                  defaultOpen={i.attachments.length > 0}
                 />
               </div>
             );

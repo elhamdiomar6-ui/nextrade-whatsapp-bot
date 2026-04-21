@@ -25,6 +25,7 @@ export async function getAttachmentMap(
       name:      r.name,
       mimeType:  r.mimeType,
       size:      r.size,
+      category:  (r as { category?: string | null }).category ?? null,
       createdAt: r.createdAt.toISOString(),
     });
   }

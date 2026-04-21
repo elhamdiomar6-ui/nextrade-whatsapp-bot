@@ -44,6 +44,7 @@ interface Props {
   readOnly?: boolean;
   collapsible?: boolean;
   defaultOpen?: boolean;
+  phases?: boolean;   // show AVANT/PENDANT/APRÈS tabs
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -55,6 +56,7 @@ export function AttachmentsPanel({
   readOnly = false,
   collapsible = false,
   defaultOpen = false,
+  phases = false,
 }: Props) {
   const { data: session } = useSession();
   const { lang } = useLang();
@@ -68,6 +70,7 @@ export function AttachmentsPanel({
   const [deleteId,    setDeleteId]    = useState<string | null>(null);
   const [preview,     setPreview]     = useState<PreviewItem | null>(null);
   const [error,       setError]       = useState("");
+  const [activePhase, setActivePhase] = useState<string | null>(phases ? "AVANT" : null);
 
   const docRef = useRef<HTMLInputElement>(null);
   const imgRef = useRef<HTMLInputElement>(null);
@@ -96,6 +99,7 @@ export function AttachmentsPanel({
           size:     data.size,
           entityType,
           entityId,
+          category: activePhase ?? null,
         });
         setAttachments((prev) => [newAtt, ...prev]);
       }
@@ -151,14 +155,41 @@ export function AttachmentsPanel({
     <div className="pt-2 border-t border-gray-100">{header}</div>
   );
 
+  // ── Phase filter ────────────────────────────────────────────────────────────
+  const phaseLabels: Record<string, { fr: string; ar: string; color: string }> = {
+    AVANT:   { fr: "Avant travaux",   ar: "قبل الأشغال",  color: "#d97706" },
+    PENDANT: { fr: "Pendant travaux", ar: "أثناء الأشغال", color: "#2563eb" },
+    APRES:   { fr: "Après travaux",   ar: "بعد الأشغال",  color: "#16a34a" },
+  };
+  const visibleAttachments = phases && activePhase
+    ? attachments.filter((a) => a.category === activePhase)
+    : attachments;
+
   // ── Attachment categories ───────────────────────────────────────────────────
-  const images = attachments.filter((a) => a.mimeType.startsWith("image/"));
-  const videos = attachments.filter((a) => a.mimeType.startsWith("video/"));
-  const docs   = attachments.filter((a) => !a.mimeType.startsWith("image/") && !a.mimeType.startsWith("video/"));
+  const images = visibleAttachments.filter((a) => a.mimeType.startsWith("image/"));
+  const videos = visibleAttachments.filter((a) => a.mimeType.startsWith("video/"));
+  const docs   = visibleAttachments.filter((a) => !a.mimeType.startsWith("image/") && !a.mimeType.startsWith("video/"));
 
   return (
     <div className="pt-2 border-t border-gray-100 space-y-2">
       {header}
+
+      {/* Phase tabs */}
+      {phases && (
+        <div className="flex gap-1">
+          {Object.entries(phaseLabels).map(([key, lbl]) => {
+            const cnt = attachments.filter((a) => a.category === key).length;
+            return (
+              <button key={key} onClick={() => setActivePhase(key)}
+                className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium border transition-colors ${activePhase === key ? "text-white border-transparent" : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"}`}
+                style={activePhase === key ? { background: lbl.color, borderColor: lbl.color } : {}}>
+                {lang === "fr" ? lbl.fr : lbl.ar}
+                {cnt > 0 && <span className={`text-[10px] font-bold ${activePhase === key ? "opacity-90" : "text-gray-400"}`}>({cnt})</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {error && (
         <p className="text-xs text-red-600 bg-red-50 rounded-lg px-2 py-1">{error}</p>

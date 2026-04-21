@@ -87,10 +87,24 @@ function DataRow({ label, value }: { label: string; value: unknown }) {
 
 const DATA_LABELS: Record<string, Record<string, string>> = {
   electricity_bill: {
+    invoiceNumber: "N° facture", tournee: "Tournée", invoiceDate: "Date facture",
     clientName: "Client", clientNumber: "N° client", contractNumber: "N° contrat",
-    meterNumber: "N° compteur", periodStart: "Début période", periodEnd: "Fin période",
-    previousIndex: "Index ancien", currentIndex: "Index nouveau", consumption: "Consommation (kWh)",
-    amountHT: "Montant HT", tva: "TVA", amountTTC: "Montant TTC", dueDate: "Date limite paiement",
+    meterNumber: "N° compteur", puissance: "Puissance", agence: "Agence",
+    usage: "Usage", address: "Adresse",
+    periodStart: "Début période", periodEnd: "Fin période", consumptionDays: "Durée (jours)",
+    dateAncienne: "Date relevé ancien", dateActuelle: "Date relevé actuel",
+    previousIndex: "Index ancien (kWh)", currentIndex: "Index actuel (kWh)",
+    consumption: "Conso brute (kWh)", deductionKwh: "Déduction (kWh)",
+    tranche5Qty: "Tranche 5 — qté", tranche5PrixHT: "Tranche 5 — prix HT", tranche5MontantHT: "Tranche 5 — HT", tranche5TTC: "Tranche 5 — TTC",
+    consoAnterieureQty: "Conso antérieure — qté", consoAnterieureHT: "Conso antérieure — HT", consoAnterieureTTC: "Conso antérieure — TTC",
+    deductionForfaitQty: "Déduction forfait — qté", deductionForfaitHT: "Déduction forfait — HT", deductionForfaitTTC: "Déduction forfait — TTC",
+    totalConsoQty: "Total conso — qté", totalConsoHT: "Total conso — HT", totalConsoTTC: "Total conso — TTC",
+    locationCompteurHT: "Location compteur — HT", locationCompteurTTC: "Location compteur — TTC",
+    entretienHT: "Entretien branchement — HT", entretienTTC: "Entretien branchement — TTC",
+    tppanHT: "TPPAN — HT", tppanTTC: "TPPAN — TTC",
+    amountHT: "Total HT", tva: "Total TVA", amountTTC: "Total général TTC",
+    amountToPay: "Montant à payer", amountByDirectDebit: "Montant par prélèvement",
+    dueDate: "Date limite paiement",
   },
   water_bill: {
     clientName: "Client", meterNumber: "N° compteur", consumption: "Consommation (m³)",

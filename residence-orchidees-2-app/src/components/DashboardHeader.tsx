@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Menu, Bell } from "lucide-react";
+import { Menu, Bell, Printer } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useLang } from "@/contexts/LangContext";
 import type { Lang } from "@/lib/i18n";
@@ -49,6 +49,15 @@ export function DashboardHeader({ onMenuClick, pageTitle }: DashboardHeaderProps
           className="hidden sm:block text-xs px-2.5 py-1 rounded-full border border-gray-200 text-gray-500 hover:border-green-400 hover:text-green-700 transition-colors"
         >
           {lang === "fr" ? "ع" : "FR"}
+        </button>
+
+        {/* Print */}
+        <button
+          onClick={() => window.print()}
+          className="no-print p-2 rounded-xl text-gray-500 hover:bg-gray-100 hover:text-green-700 transition-colors"
+          title={lang === "fr" ? "Imprimer / Enregistrer PDF" : "طباعة / حفظ PDF"}
+        >
+          <Printer size={20} />
         </button>
 
         {/* Notifications */}

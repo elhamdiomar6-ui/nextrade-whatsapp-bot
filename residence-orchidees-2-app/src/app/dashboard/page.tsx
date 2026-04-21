@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { DashboardClient } from "./DashboardClient";
+import { DailySummaryBanner } from "@/components/DailySummaryBanner";
 
 async function getDashboardStats() {
   const [
@@ -81,17 +82,41 @@ async function getDashboardStats() {
   };
 }
 
+async function getDailySummary() {
+  try {
+    const mem = await prisma.agentMemory.findUnique({ where: { key: "system:last_daily_summary" } });
+    if (!mem) return null;
+    // context: "3 factures, 2 relevés manquants, 1 interventions"
+    const ctx = mem.context ?? "";
+    const parse = (re: RegExp) => { const m = ctx.match(re); return m ? parseInt(m[1]) : 0; };
+    return {
+      date: mem.value,
+      context: ctx,
+      unpaidInvoices:    parse(/(\d+) factures?/),
+      missingReadings:   parse(/(\d+) relev/),
+      expiringSoon:      0,
+      coldProspects:     0,
+      openInterventions: parse(/(\d+) interventions?/),
+    };
+  } catch { return null; }
+}
+
 export default async function DashboardPage() {
   const session = await auth();
   const userRole = (session?.user as { role?: string })?.role;
   if (userRole === "OCCUPANT") redirect("/dashboard/mon-espace");
-  const stats = await getDashboardStats();
+  const [stats, summary] = await Promise.all([getDashboardStats(), getDailySummary()]);
 
   return (
-    <DashboardClient
-      stats={stats}
-      userName={session?.user?.name ?? "—"}
-      userRole={(session?.user as { role?: string })?.role ?? "VIEWER"}
-    />
+    <>
+      {summary && (
+        <DailySummaryBanner {...summary} />
+      )}
+      <DashboardClient
+        stats={stats}
+        userName={session?.user?.name ?? "—"}
+        userRole={(session?.user as { role?: string })?.role ?? "VIEWER"}
+      />
+    </>
   );
 }

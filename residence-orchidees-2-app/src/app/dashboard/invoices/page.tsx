@@ -2,12 +2,23 @@ import { prisma } from "@/lib/prisma";
 import { InvoicesClient } from "./InvoicesClient";
 import { getAttachmentMap } from "@/lib/attachments";
 
-export default async function InvoicesPage() {
-  const invoices = await prisma.invoice.findMany({
-    orderBy: { period: "desc" },
-    include: { subscription: { include: { unit: true } } },
-  });
+async function getDashboardData() {
+  const [invoices, subscriptions] = await Promise.all([
+    prisma.invoice.findMany({
+      orderBy: { period: "desc" },
+      include: { subscription: { include: { unit: true } } },
+    }),
+    prisma.subscription.findMany({
+      where: { status: "ACTIVE" },
+      include: { unit: { select: { name: true } } },
+      orderBy: [{ unit: { name: "asc" } }, { serviceType: "asc" }],
+    }),
+  ]);
+  return { invoices, subscriptions };
+}
 
+export default async function InvoicesPage() {
+  const { invoices, subscriptions } = await getDashboardData();
   const attMap = await getAttachmentMap("invoice", invoices.map((i) => i.id));
 
   const stats = {
@@ -29,6 +40,11 @@ export default async function InvoicesPage() {
         attachments: attMap[i.id] ?? [],
       }))}
       stats={stats}
+      subscriptions={subscriptions.map(s => ({
+        id: s.id,
+        serviceType: s.serviceType,
+        unitName: s.unit?.name ?? "Général",
+      }))}
     />
   );
 }

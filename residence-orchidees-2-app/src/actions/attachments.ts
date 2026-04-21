@@ -10,6 +10,7 @@ export interface AttachmentRow {
   name: string;
   mimeType: string;
   size: number;
+  category: string | null;
   createdAt: string;
 }
 
@@ -21,6 +22,8 @@ const entityPaths: Record<string, string> = {
   prospect:     "/dashboard/prospects",
   sale:         "/dashboard/sales",
   reading:      "/dashboard/readings",
+  unit:         "/dashboard/units",
+  meter:        "/dashboard/meters",
 };
 
 export async function addAttachment(data: {
@@ -30,6 +33,7 @@ export async function addAttachment(data: {
   size: number;
   entityType: string;
   entityId: string;
+  category?: string | null;
 }): Promise<AttachmentRow> {
   const att = await prisma.attachment.create({ data });
   revalidatePath(entityPaths[data.entityType] ?? "/dashboard");
@@ -39,6 +43,7 @@ export async function addAttachment(data: {
     name:      att.name,
     mimeType:  att.mimeType,
     size:      att.size,
+    category:  att.category ?? null,
     createdAt: att.createdAt.toISOString(),
   };
 }

@@ -1,8 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { useLang } from "@/contexts/LangContext";
-import { Home, Store, User, Building2, Gauge, Tag } from "lucide-react";
+import { Home, Store, User, Building2, Gauge, Tag, ChevronDown, ChevronUp } from "lucide-react";
 import { fmt } from "@/lib/fmt";
+import { AttachmentsPanel } from "@/components/AttachmentsPanel";
+import type { AttachmentRow } from "@/actions/attachments";
 import type { UnitKind, LotStatus } from "@prisma/client";
 
 interface UnitRow {
@@ -15,6 +18,7 @@ interface UnitRow {
   hasLot: boolean;
   lotStatus: LotStatus | null;
   lotPrice: number | null;
+  attachments: AttachmentRow[];
 }
 
 const kindIcon: Record<UnitKind, React.ReactNode> = {
@@ -45,6 +49,7 @@ const lotStatusLabel: Record<LotStatus, { fr: string; ar: string }> = {
 
 export function UnitsClient({ units }: { units: UnitRow[] }) {
   const { lang, isRtl } = useLang();
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const grouped: Record<UnitKind, UnitRow[]> = {
     APARTMENT: units.filter((u) => u.kind === "APARTMENT"),
@@ -86,41 +91,41 @@ export function UnitsClient({ units }: { units: UnitRow[] }) {
           </thead>
           <tbody className="divide-y divide-gray-50">
             {units.map((u) => (
-              <tr key={u.id} className="hover:bg-gray-50 transition-colors">
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    {kindIcon[u.kind]}
-                    <span className="font-semibold text-gray-900">{u.name}</span>
-                  </div>
-                </td>
-                <td className="px-4 py-3 hidden sm:table-cell text-gray-500 text-xs">
-                  {kindLabel[u.kind][lang]}
-                </td>
-                <td className="px-4 py-3 hidden sm:table-cell text-gray-500 text-xs">
-                  {u.floor === null ? "—" : u.floor === 0 ? (lang === "fr" ? "RDC" : "أرضي") : u.floor}
-                </td>
-                <td className="px-4 py-3 text-center">
-                  <span className="inline-flex items-center gap-1 text-xs text-gray-500">
-                    {u.metersCount}
-                  </span>
-                </td>
-                <td className="px-4 py-3 hidden md:table-cell">
-                  {u.hasLot && u.lotStatus ? (
+              <>
+                <tr key={u.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => setExpandedId(expandedId === u.id ? null : u.id)}>
+                  <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${lotStatusColor[u.lotStatus]}`}>
-                        {lotStatusLabel[u.lotStatus][lang]}
-                      </span>
-                      {u.lotPrice && (
-                        <span className="text-xs text-gray-400 flex items-center gap-0.5">
-                          <Tag size={10} />{fmt(u.lotPrice)} MAD
-                        </span>
-                      )}
+                      {kindIcon[u.kind]}
+                      <span className="font-semibold text-gray-900">{u.name}</span>
                     </div>
-                  ) : (
-                    <span className="text-xs text-gray-300">—</span>
-                  )}
-                </td>
-              </tr>
+                  </td>
+                  <td className="px-4 py-3 hidden sm:table-cell text-gray-500 text-xs">{kindLabel[u.kind][lang]}</td>
+                  <td className="px-4 py-3 hidden sm:table-cell text-gray-500 text-xs">
+                    {u.floor === null ? "—" : u.floor === 0 ? (lang === "fr" ? "RDC" : "أرضي") : u.floor}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <span className="inline-flex items-center gap-1 text-xs text-gray-500">{u.metersCount}</span>
+                  </td>
+                  <td className="px-4 py-3 hidden md:table-cell">
+                    {u.hasLot && u.lotStatus ? (
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${lotStatusColor[u.lotStatus]}`}>{lotStatusLabel[u.lotStatus][lang]}</span>
+                        {u.lotPrice && <span className="text-xs text-gray-400 flex items-center gap-0.5"><Tag size={10} />{fmt(u.lotPrice)} MAD</span>}
+                      </div>
+                    ) : <span className="text-xs text-gray-300">—</span>}
+                  </td>
+                  <td className="px-3 py-3 text-gray-400">
+                    {expandedId === u.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  </td>
+                </tr>
+                {expandedId === u.id && (
+                  <tr key={`${u.id}-att`}>
+                    <td colSpan={6} className="px-4 pb-3 bg-gray-50">
+                      <AttachmentsPanel entityType="unit" entityId={u.id} initialAttachments={u.attachments} collapsible={false} defaultOpen />
+                    </td>
+                  </tr>
+                )}
+              </>
             ))}
           </tbody>
         </table>

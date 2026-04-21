@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { ReadingsClient } from "./ReadingsClient";
+import { getAttachmentMap } from "@/lib/attachments";
 
 export default async function ReadingsPage() {
   const [readings, meters] = await Promise.all([
@@ -17,21 +18,18 @@ export default async function ReadingsPage() {
     }),
   ]);
 
+  const attMap = await getAttachmentMap("reading", readings.map((r) => r.id));
+
   return (
     <ReadingsClient
       readings={readings.map((r) => ({
-        id: r.id,
-        value: r.value,
-        previousValue: r.previousValue,
-        date: r.date.toISOString(),
-        validated: r.validated,
-        notes: r.notes,
-        photoUrl: r.photoUrl,
-        meterSerial: r.meter.serialNumber,
-        serviceType: r.meter.serviceType,
+        id: r.id, value: r.value, previousValue: r.previousValue,
+        date: r.date.toISOString(), validated: r.validated, notes: r.notes, photoUrl: r.photoUrl,
+        meterSerial: r.meter.serialNumber, serviceType: r.meter.serviceType,
         unitName: r.meter.subscription.unit?.name ?? "Général",
         consumption: r.previousValue !== null ? +(r.value - r.previousValue).toFixed(2) : null,
         anomaly: r.previousValue !== null ? r.value < r.previousValue : false,
+        attachments: attMap[r.id] ?? [],
       }))}
       meters={meters.map((m) => ({
         id: m.id,

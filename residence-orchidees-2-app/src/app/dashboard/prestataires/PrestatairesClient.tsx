@@ -1,5 +1,6 @@
 "use client";
-import { useState, useTransition, useMemo, useCallback } from "react";
+import { useState, useTransition, useMemo, useCallback, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import * as XLSX from "xlsx";
 import { fmt } from "@/lib/fmt";
@@ -361,6 +362,14 @@ export default function PrestatairesClient({ prestataires, stats, userRole }: {
   const [isPending, startTransition] = useTransition();
 
   const [selectedMetier, setSelectedMetier] = useState<MetierKey | "TOUS">("ELECTRICITE");
+  const [mobilePanel, setMobilePanel] = useState<"list" | "detail">("list");
+  const [isSmall, setIsSmall] = useState(false);
+  useEffect(() => {
+    const check = () => setIsSmall(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -589,10 +598,10 @@ export default function PrestatairesClient({ prestataires, stats, userRole }: {
       </div>
 
       {/* Main */}
-      <div style={{ display: "flex", flex: 1, overflow: "hidden", padding: "0 20px 20px", gap: 14 }}>
+      <div style={{ display: "flex", flex: 1, overflow: "hidden", padding: isSmall ? "0 8px 16px" : "0 20px 20px", gap: isSmall ? 0 : 14 }}>
 
         {/* LEFT panel */}
-        <div style={{ width: 248, flexShrink: 0, background: "white", borderRadius: 12, border: "1px solid #e5e7eb", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ width: isSmall ? "100%" : 248, flexShrink: 0, background: "white", borderRadius: 12, border: "1px solid #e5e7eb", display: isSmall && mobilePanel === "detail" ? "none" : "flex", flexDirection: "column", overflow: "hidden", transition: "all 0.2s ease" }}>
           <div style={{ padding: "10px 14px", borderBottom: "1px solid #f3f4f6" }}>
             <p style={{ fontSize: 12, fontWeight: 700, color: "#374151", display: "flex", alignItems: "center", gap: 5 }}>
               <Hammer size={13} color="#4b5563" />{ar ? "تصفية بالمهنة" : "Corps de métier"}
@@ -600,7 +609,7 @@ export default function PrestatairesClient({ prestataires, stats, userRole }: {
           </div>
           <div style={{ overflowY: "auto", flex: 1 }}>
             {/* Tous */}
-            <button onClick={() => { setSelectedMetier("TOUS"); setExpandedId(null); }}
+            <button onClick={() => { setSelectedMetier("TOUS"); setExpandedId(null); if (isSmall) setMobilePanel("detail"); }}
               style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 14px", background: selectedMetier === "TOUS" ? "#f0fdf4" : "#f9fafb", borderLeft: selectedMetier === "TOUS" && !ar ? "3px solid #16a34a" : "3px solid transparent", borderRight: selectedMetier === "TOUS" && ar ? "3px solid #16a34a" : "3px solid transparent", borderTop: "none", borderBottom: "1px solid #e5e7eb", cursor: "pointer" }}>
               <span style={{ fontSize: 12.5, color: selectedMetier === "TOUS" ? "#15803d" : "#374151", fontWeight: selectedMetier === "TOUS" ? 700 : 500, display: "flex", alignItems: "center", gap: 6 }}>
                 <LayoutList size={13} />{ar ? "الكل" : "Tous les prestataires"}
@@ -613,7 +622,7 @@ export default function PrestatairesClient({ prestataires, stats, userRole }: {
               const active = selectedMetier === key;
               const icon = METIER_ICONS[key as MetierKey];
               return (
-                <button key={key} onClick={() => { setSelectedMetier(key as MetierKey); setExpandedId(null); }}
+                <button key={key} onClick={() => { setSelectedMetier(key as MetierKey); setExpandedId(null); if (isSmall) setMobilePanel("detail"); }}
                   style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 12px", background: active ? "#f0fdf4" : "transparent", borderLeft: active && !ar ? "3px solid #16a34a" : "3px solid transparent", borderRight: active && ar ? "3px solid #16a34a" : "3px solid transparent", borderTop: "none", borderBottom: "1px solid #f9fafb", cursor: "pointer", gap: 6 }}>
                   <span style={{ display: "flex", alignItems: "center", gap: 7, flex: 1, minWidth: 0 }}>
                     <span style={{ width: 24, height: 24, borderRadius: 6, background: icon.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0 }}>{icon.emoji}</span>
@@ -627,10 +636,15 @@ export default function PrestatairesClient({ prestataires, stats, userRole }: {
         </div>
 
         {/* RIGHT panel */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
+        <div style={{ flex: 1, display: isSmall && mobilePanel === "list" ? "none" : "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
           {/* Header */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, gap: 8, flexWrap: "wrap" }}>
             <h2 style={{ fontSize: 15, fontWeight: 700, color: "#111827", margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+              {isSmall && (
+                <button onClick={() => setMobilePanel("list")} style={{ background: "none", border: "none", cursor: "pointer", padding: "4px 6px 4px 0", display: "flex", alignItems: "center", gap: 4, color: "#374151", fontSize: 13, fontWeight: 600 }}>
+                  ← {ar ? "رجوع" : "Retour"}
+                </button>
+              )}
               {selectedMetier !== "TOUS" && (
                 <span style={{ fontSize: 18 }}>{METIER_ICONS[selectedMetier].emoji}</span>
               )}
@@ -910,10 +924,11 @@ export default function PrestatairesClient({ prestataires, stats, userRole }: {
       </div>
 
       {/* ── FORM MODAL ─────────────────────────────────────────────────────── */}
-      {showForm && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 20, overflowY: "auto" }}
+      {showForm && createPortal(
+        <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "env(safe-area-inset-top, 0px) 0 0 0", overflowY: "auto" }}
           onClick={e => { if (e.target === e.currentTarget) setShowForm(false); }}>
-          <div dir={ar ? "rtl" : "ltr"} style={{ background: "white", borderRadius: 14, width: "100%", maxWidth: 740, boxShadow: "0 20px 60px rgba(0,0,0,0.3)", marginTop: 20 }}>
+          <div dir={ar ? "rtl" : "ltr"} style={{ background: "white", borderRadius: 0, width: "100%", maxWidth: 740, boxShadow: "0 20px 60px rgba(0,0,0,0.3)", minHeight: "100dvh" }}
+            className="sm:rounded-2xl sm:my-5 sm:min-h-0">
             {/* Header with métier color */}
             <div style={{ padding: "0", borderRadius: "14px 14px 0 0", overflow: "hidden" }}>
               <div style={{ background: METIER_ICONS[form.metier].bg, padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `3px solid ${METIER_ICONS[form.metier].color}20` }}>
@@ -926,7 +941,8 @@ export default function PrestatairesClient({ prestataires, stats, userRole }: {
               </div>
             </div>
 
-            <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16, maxHeight: "74vh", overflowY: "auto" }}>
+            <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: 16, overflowY: "auto" }}
+              className="sm:px-6 sm:max-h-[74vh]">
 
               {/* Métier principal */}
               <STitle t={ar ? "المهنة الرئيسية" : "Corps de métier principal"} />
@@ -1098,7 +1114,7 @@ export default function PrestatairesClient({ prestataires, stats, userRole }: {
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
     </div>
   );
 }
