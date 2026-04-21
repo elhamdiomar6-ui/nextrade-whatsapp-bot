@@ -31,6 +31,7 @@ const T = {
 export default function LoginPage() {
   const router = useRouter();
   const [lang, setLang] = useState<"fr" | "ar">("fr");
+  const isOccupantPortal = typeof window !== "undefined" && new URL(window.location.href).searchParams.get("portal") === "occupant";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
@@ -56,7 +57,15 @@ export default function LoginPage() {
     if (res?.error) {
       setError(t.error);
     } else {
-      router.push("/dashboard");
+      // Fetch session to check role for redirect
+      const { getSession } = await import("next-auth/react");
+      const session = await getSession();
+      const role = (session?.user as { role?: string })?.role;
+      if (role === "OCCUPANT") {
+        router.push("/dashboard/mon-espace");
+      } else {
+        router.push("/dashboard");
+      }
     }
   }
 
@@ -87,7 +96,9 @@ export default function LoginPage() {
             <h1 className="text-lg font-bold text-white leading-tight">
               {t.appName}
             </h1>
-            <p className="text-green-200 text-sm mt-0.5">{t.subtitle}</p>
+            <p className="text-green-200 text-sm mt-0.5">
+              {isOccupantPortal ? (lang === "fr" ? "Portail Occupants" : "بوابة الساكنين") : t.subtitle}
+            </p>
           </div>
 
           {/* Form */}

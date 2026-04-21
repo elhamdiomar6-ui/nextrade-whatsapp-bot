@@ -28,16 +28,21 @@ export async function createReading(data: {
     include: { meter: { include: { subscription: { include: { unit: true } } } } },
   });
 
-  // ── Notification WhatsApp si anomalie ─────────────────────────────────────
+  // ── Notification WhatsApp ─────────────────────────────────────────────────
   const isAnomaly = last !== null && data.value < last.value;
-  if (isAnomaly) {
-    const unitName = reading.meter.subscription.unit?.name ?? "Inconnue";
-    const conso    = (data.value - (last?.value ?? 0)).toFixed(2);
-    const omar     = await getOmarPhone();
-    if (omar) {
+  const unitName  = reading.meter.subscription.unit?.name ?? "Inconnue";
+  const conso     = last !== null ? (data.value - last.value).toFixed(2) : null;
+  const omar      = await getOmarPhone();
+  if (omar) {
+    if (isAnomaly) {
       await sendWhatsApp(
         omar,
         `⚠️ *Orchidées 2 — Anomalie relevé*\nUnité : ${unitName}\nCompteur : ${reading.meter.serialNumber}\nNouveau relevé : ${data.value} m³\nPrécédent : ${last?.value} m³\nConsommation : ${conso} m³ (ANORMAL)\nDate : ${new Date().toLocaleDateString("fr-MA")}`
+      );
+    } else {
+      await sendWhatsApp(
+        omar,
+        `📊 *Orchidées 2 — Nouveau relevé*\nUnité : ${unitName} | Index : ${data.value}${conso !== null ? ` | Conso : ${conso} m³` : ""}\nDate : ${new Date().toLocaleDateString("fr-MA")}`
       );
     }
   }

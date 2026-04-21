@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useLang } from "@/contexts/LangContext";
-import { Plus, X, Droplets, Upload, Camera } from "lucide-react";
+import { Plus, X, Droplets, Upload, Camera, Sparkles, Loader2 } from "lucide-react";
 import { createReading } from "@/actions/readings";
 
 export interface MeterOption {
@@ -28,6 +28,8 @@ export function NewReadingForm({ meters }: { meters: MeterOption[] }) {
   const [notes, setNotes] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
   const [error, setError] = useState("");
+  const [analyzing, setAnalyzing] = useState(false);
+  const [aiHint, setAiHint] = useState("");
 
   const selected = meters.find((m) => m.id === meterId);
   const consumption =
@@ -37,7 +39,37 @@ export function NewReadingForm({ meters }: { meters: MeterOption[] }) {
   const isAnomaly = consumption !== null && parseFloat(consumption) < 0;
 
   const reset = () => {
-    setMeterId(""); setValue(""); setNotes(""); setPhoto(null); setError("");
+    setMeterId(""); setValue(""); setNotes(""); setPhoto(null); setError(""); setAiHint("");
+  };
+
+  const analyzePhoto = async (file: File) => {
+    setAnalyzing(true);
+    setAiHint("");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/scan/analyze", { method: "POST", body: fd });
+      const json = await res.json();
+      if (json.error) return;
+      const d = json.data ?? {};
+      // Try to match meter by serial number
+      if (d.meterNumber) {
+        const matched = meters.find((m) => m.serial === d.meterNumber);
+        if (matched) setMeterId(matched.id);
+      }
+      // Pre-fill index
+      if (d.index !== undefined && d.index !== null) {
+        setValue(String(d.index));
+        setAiHint(`IA : index ${d.index} détecté depuis la photo`);
+      } else if (d.currentIndex !== undefined && d.currentIndex !== null) {
+        setValue(String(d.currentIndex));
+        setAiHint(`IA : index ${d.currentIndex} détecté depuis la photo`);
+      }
+    } catch {
+      // silent fail
+    } finally {
+      setAnalyzing(false);
+    }
   };
   const close = () => { reset(); setOpen(false); };
 
@@ -162,12 +194,13 @@ export function NewReadingForm({ meters }: { meters: MeterOption[] }) {
                 />
               </div>
 
-              {/* Photo upload */}
+              {/* Photo upload + AI */}
               <div>
                 <label className="text-xs font-medium text-gray-600 block mb-1.5">
                   <span className="flex items-center gap-1">
                     <Camera size={13} />
                     {lang === "fr" ? "Photo du compteur" : "صورة العداد"}
+                    <span className="ml-1 text-[10px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full font-semibold">IA</span>
                   </span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer border border-dashed border-gray-300 rounded-xl px-3 py-2.5 hover:border-green-400 transition-colors">
@@ -180,9 +213,25 @@ export function NewReadingForm({ meters }: { meters: MeterOption[] }) {
                     accept="image/*"
                     capture="environment"
                     className="hidden"
-                    onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0] ?? null;
+                      setPhoto(f);
+                      if (f) analyzePhoto(f);
+                    }}
                   />
                 </label>
+                {analyzing && (
+                  <p className="text-xs text-purple-600 mt-1 flex items-center gap-1">
+                    <Loader2 size={11} className="animate-spin" />
+                    {lang === "fr" ? "Analyse IA en cours…" : "تحليل ذكاء اصطناعي..."}
+                  </p>
+                )}
+                {aiHint && !analyzing && (
+                  <p className="text-xs text-green-700 mt-1 flex items-center gap-1">
+                    <Sparkles size={11} />
+                    {aiHint}
+                  </p>
+                )}
               </div>
 
               {error && <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}

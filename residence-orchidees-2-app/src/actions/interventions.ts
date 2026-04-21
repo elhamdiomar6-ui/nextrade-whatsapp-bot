@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import type { InterventionStatus } from "@prisma/client";
+import { notifyAllOwners } from "@/lib/whatsapp";
 
 export async function createIntervention(data: {
   title: string;
@@ -30,6 +31,11 @@ export async function createIntervention(data: {
       contractorId: contractorId ?? null,
     },
   });
+
+  // Notify all co-owners
+  notifyAllOwners(
+    `🔧 *Orchidées 2 — Nouvelle intervention*\n${data.title}${data.description ? `\n${data.description}` : ""}${data.contractorName ? `\nPrestataire : ${data.contractorName}` : ""}\nDate : ${new Date().toLocaleDateString("fr-MA")}`
+  ).catch(() => {});
 
   revalidatePath("/dashboard/interventions");
   revalidatePath("/dashboard");

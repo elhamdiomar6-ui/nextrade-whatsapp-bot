@@ -29,6 +29,8 @@ import {
   MessagesSquare,
   Hammer,
   ScanLine,
+  HardHat,
+  FileBarChart,
 } from "lucide-react";
 
 const gestionItems = [
@@ -39,9 +41,13 @@ const gestionItems = [
   { key: "invoices",      href: "/dashboard/invoices",      icon: Receipt },
   { key: "expenses",      href: "/dashboard/expenses",      icon: Wallet },
   { key: "interventions", href: "/dashboard/interventions", icon: Wrench },
-  { key: "prestataires",  href: "/dashboard/prestataires",  icon: Hammer },
   { key: "visits",        href: "/dashboard/visits",        icon: UserCheck },
   { key: "documents",     href: "/dashboard/documents",     icon: FolderOpen },
+] as const;
+
+const constructionItems = [
+  { key: "construction", href: "/dashboard/construction", icon: HardHat,  labelFr: "Dossier construction", labelAr: "ملف البناء" },
+  { key: "prestataires", href: "/dashboard/prestataires", icon: Hammer,   labelFr: "Corps de métier",      labelAr: "أصحاب المهن" },
 ] as const;
 
 const commercialItems = [
@@ -54,6 +60,7 @@ const commercialItems = [
 const personnesItems = [
   { key: "occupants",   href: "/dashboard/occupants",   icon: Users,     labelFr: "Occupants",   labelAr: "الشاغلون" },
   { key: "acquereurs",  href: "/dashboard/acquereurs",  icon: UserPlus,  labelFr: "Acquéreurs",  labelAr: "المشترون المحتملون" },
+  { key: "personnel",   href: "/dashboard/personnel",   icon: UserCheck, labelFr: "Personnel",   labelAr: "الموظفون" },
 ] as const;
 
 const adminItems = [
@@ -96,7 +103,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       <aside
         dir={isRtl ? "rtl" : "ltr"}
         className={`
-          fixed top-0 z-30 h-full w-64 bg-green-800 text-white flex flex-col
+          no-print fixed top-0 z-30 h-full w-64 bg-green-800 text-white flex flex-col
           transition-transform duration-300 ease-in-out
           lg:static lg:translate-x-0 lg:shrink-0
           ${isRtl ? "right-0" : "left-0"}
@@ -176,12 +183,35 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           </Link>
         ))}
 
+        {/* Construction section */}
+        {!isOccupant && <p className="px-3 pt-3 pb-1 text-green-400 text-xs font-semibold uppercase tracking-widest">
+          {isRtl ? "البناء" : "Construction"}
+        </p>}
+        {!isOccupant && constructionItems.map(({ key, href, icon: Icon, labelFr, labelAr }) => (
+          <Link key={key} href={href} onClick={onClose}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors group ${isActive(href) ? "bg-white/15 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}>
+            <Icon size={18} className={`shrink-0 ${isActive(href) ? "text-white" : "text-green-300 group-hover:text-white"}`} />
+            <span>{isRtl ? labelAr : labelFr}</span>
+            {isActive(href) && <span className={`${isRtl ? "mr-auto" : "ml-auto"} w-1.5 h-1.5 rounded-full bg-green-300`} />}
+          </Link>
+        ))}
+
         {/* Messagerie for non-occupant */}
         {!isOccupant && (
           <Link href="/dashboard/messagerie" onClick={onClose}
             className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors group ${isActive("/dashboard/messagerie") ? "bg-white/15 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}>
             <MessagesSquare size={18} className={`shrink-0 ${isActive("/dashboard/messagerie") ? "text-white" : "text-green-300 group-hover:text-white"}`} />
             <span>{isRtl ? "المراسلة" : "Messagerie"}</span>
+          </Link>
+        )}
+
+        {/* Rapports PDF for non-occupant */}
+        {!isOccupant && (
+          <Link href="/dashboard/reports" onClick={onClose}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors group ${isActive("/dashboard/reports") ? "bg-white/15 text-white" : "text-green-200 hover:bg-white/10 hover:text-white"}`}>
+            <FileBarChart size={18} className={`shrink-0 ${isActive("/dashboard/reports") ? "text-white" : "text-green-300 group-hover:text-white"}`} />
+            <span>{isRtl ? "التقارير" : "Rapports PDF"}</span>
+            {isActive("/dashboard/reports") && <span className={`${isRtl ? "mr-auto" : "ml-auto"} w-1.5 h-1.5 rounded-full bg-green-300`} />}
           </Link>
         )}
 
