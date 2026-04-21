@@ -215,8 +215,8 @@ export function AgentChat() {
           quickReplies: data.quickReplies ?? [],
         },
       ]);
-    } catch {
-      setError("Erreur de communication avec Orchid.");
+    } catch (e) {
+      setError(e instanceof Error ? `Erreur : ${e.message}` : "Erreur de communication avec Karim.");
     } finally {
       setLoading(false);
     }

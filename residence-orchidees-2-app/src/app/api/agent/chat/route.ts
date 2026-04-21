@@ -537,29 +537,20 @@ async function generateSessionSummary(userId: string, convId: string) {
 
 async function getRecentConversationHistory(userId: string): Promise<string> {
   try {
-    const yesterday = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // 7 derniers jours
-    const conversations = await prisma.agentConversation.findMany({
-      where: { userId, updatedAt: { gte: yesterday } },
+    const since = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000); // 3 derniers jours
+    const conv = await prisma.agentConversation.findFirst({
+      where: { userId, updatedAt: { gte: since } },
       orderBy: { updatedAt: "desc" },
-      take: 3,
       include: {
-        messages: {
-          orderBy: { createdAt: "desc" },
-          take: 10,
-        },
+        messages: { orderBy: { createdAt: "desc" }, take: 8 },
       },
     });
-
-    if (conversations.length === 0) return "";
-
-    const lines: string[] = ["=== HISTORIQUE CONVERSATIONS (7 derniers jours) ==="];
-    for (const conv of conversations) {
-      const date = conv.updatedAt.toLocaleDateString("fr-MA");
-      lines.push(`\n— Session du ${date} :`);
-      conv.messages.reverse().forEach(m => {
-        lines.push(`  ${m.role === "USER" ? "Q" : "R"}: ${m.content.slice(0, 150)}${m.content.length > 150 ? "…" : ""}`);
-      });
-    }
+    if (!conv || conv.messages.length === 0) return "";
+    const date = conv.updatedAt.toLocaleDateString("fr-MA");
+    const lines = [`=== DERNIÈRE SESSION (${date}) ===`];
+    conv.messages.reverse().forEach(m => {
+      lines.push(`${m.role === "USER" ? "Q" : "R"}: ${m.content.slice(0, 120)}${m.content.length > 120 ? "…" : ""}`);
+    });
     return "\n\n" + lines.join("\n");
   } catch { return ""; }
 }
@@ -584,6 +575,7 @@ const WEB_SEARCH_TOOL: Anthropic.Tool = {
 // ── Route handler ──────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  try {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -599,9 +591,9 @@ export async function POST(req: NextRequest) {
   if (!message?.trim()) return NextResponse.json({ error: "Message vide" }, { status: 400 });
 
   const [context, memoryContext, historyContext] = await Promise.all([
-    buildResidenceContext(),
-    getMemoryContext(userId),
-    getRecentConversationHistory(userId),
+    buildResidenceContext().catch(() => ""),
+    getMemoryContext(userId).catch(() => ""),
+    getRecentConversationHistory(userId).catch(() => ""),
   ]);
 
   const systemWithContext = SYSTEM_PROMPT.replace("{CONTEXT}", context + memoryContext + historyContext) +
@@ -686,5 +678,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ reply, action: null, quickReplies: [] });
     }
     return NextResponse.json({ reply: finalRaw.replace(/```[\s\S]*?```/g, "").trim(), action: null, quickReplies: [] });
+  }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[agent/chat] error:", msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
