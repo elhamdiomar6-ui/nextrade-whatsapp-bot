@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cloudinary } from "@/lib/cloudinary";
 
-const MAX_SIZE = 50 * 1024 * 1024; // 50 Mo
+export const maxDuration = 60;
+
+const MAX_SIZE = 10 * 1024 * 1024; // 10 Mo (limite Vercel ~4.5MB body, compression côté client recommandée)
 
 export async function POST(req: NextRequest) {
   const formData  = await req.formData();
@@ -47,7 +49,8 @@ export async function POST(req: NextRequest) {
       size:     result.bytes,
     });
   } catch (e) {
-    console.error("Cloudinary upload error:", e);
-    return NextResponse.json({ error: "Échec upload Cloudinary" }, { status: 500 });
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("Cloudinary upload error:", msg);
+    return NextResponse.json({ error: `Échec upload : ${msg}` }, { status: 500 });
   }
 }
