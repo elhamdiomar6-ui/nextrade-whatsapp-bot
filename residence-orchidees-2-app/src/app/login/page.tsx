@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Building2 } from "lucide-react";
 
 const T = {
@@ -28,10 +28,11 @@ const T = {
   },
 };
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [lang, setLang] = useState<"fr" | "ar">("fr");
-  const isOccupantPortal = typeof window !== "undefined" && new URL(window.location.href).searchParams.get("portal") === "occupant";
+  const isOccupantPortal = searchParams.get("portal") === "occupant";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
@@ -173,5 +174,13 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

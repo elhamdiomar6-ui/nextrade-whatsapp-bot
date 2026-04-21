@@ -28,7 +28,7 @@ export default function RootLayout({
     <html lang="fr" className={`${geist.variable} h-full`}>
       <head>
         <meta name="mobile-web-app-capable" content="yes" />
-        <link rel="apple-touch-icon" href="/icon-192.png" />
+        <link rel="apple-touch-icon" href="/icon-192.svg" />
       </head>
       <body className="min-h-full">
         <Providers>{children}</Providers>
